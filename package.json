@@ -1,0 +1,24 @@
+{
+  "name": "statsarena",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "lint": "eslint ingest/src ingest/test packages/db/src && pnpm --dir dashboard run lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build",
+  "db:generate": "pnpm --dir packages/db run db:generate",
+    "db:migrate": "pnpm --dir packages/db run db:migrate"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1"
+  }
+}

@@ -1,0 +1,65 @@
+[
+  {
+    "file": "49607-fixtures.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607",
+    "sourceFetchedAt": "2026-10-06",
+    "sha256": "2ff0f93334df4cbb56ba9a28b32c567bdc603d6d96fbd91787afee48f7f19998",
+    "bytes": 1143537
+  },
+  {
+    "file": "49607-teams.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/teams",
+    "sourceFetchedAt": "2026-10-06",
+    "sha256": "e3cb1af649c1fe7059b73a1e47b390fcb42283776d3b1a801c192280885fa380",
+    "bytes": 1016577
+  },
+  {
+    "file": "49607-players.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/players",
+    "sourceFetchedAt": "2026-10-06",
+    "sha256": "ac6df1be5ba8c7943ffcb672d2109b80ae569b9eb2cf5bfd42e1a2f7de0b8cac",
+    "bytes": 1118515
+  },
+  {
+    "file": "49607-standings-index.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/standings",
+    "sourceFetchedAt": "2026-10-06",
+    "sha256": "b9edc0d527585d6f51900b35ec5092e945d1c11c4fd5da5398c24aa9f079735a",
+    "bytes": 1069012
+  },
+  {
+    "file": "49607-group-a.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/standings?phaseName=PLAYOFFS&poolNumber=9&",
+    "sourceFetchedAt": "2026-10-06",
+    "sha256": "7469197531ab582a202d1b45547d9094bac1242d83858c84d2ff74ffa2cdc4ab",
+    "bytes": 1029225
+  },
+  {
+    "file": "49607-group-b.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/standings?phaseName=PLAYOFFS&poolNumber=7&",
+    "sourceFetchedAt": "2026-10-06",
+    "sha256": "f81e2594b55b61fda7d3abedfcad4c9ab3d77c775997b7587ad31ac44a21673c",
+    "bytes": 1029225
+  },
+  {
+    "file": "49607-2931666-summary.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/match/2931666/summary",
+    "sourceFetchedAt": "2026-10-06",
+    "sha256": "9fd9518ff5c3a3d75513ba1f97165ce22a02957b10b5c1eb69b65d4b90ff1362",
+    "bytes": 1106614
+  },
+  {
+    "file": "49607-2931666-boxscore.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/match/2931666/boxscore",
+    "sourceFetchedAt": "2026-10-06",
+    "sha256": "4c243c361085dbc9e67d122d7ab83303ce8dbbb9002ed3e74179ee3c22a4638c",
+    "bytes": 1231911
+  },
+  {
+    "file": "49609-fixtures.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49609",
+    "sourceFetchedAt": "2026-10-06",
+    "sha256": "b22006862bc690e461f6417f35710c68785d443c17d1f775bffd8fffd70486a6",
+    "bytes": 1102541
+  }
+]

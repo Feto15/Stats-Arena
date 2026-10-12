@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "competitions": [
+    {
+      "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607",
+      "active": true
+    },
+    {
+      "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49609",
+      "active": true
+    }
+  ]
+}

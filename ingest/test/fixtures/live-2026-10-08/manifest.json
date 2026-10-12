@@ -1,0 +1,78 @@
+{
+  "capturedLocalDate": "2026-10-08",
+  "timezone": "Asia/Jakarta",
+  "pages": [
+    {
+      "file": "49607-2931666-playbyplay.html.gz",
+      "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/match/2931666/playbyplay?",
+      "httpStatus": 200,
+      "sourceFetchedAt": "2026-10-07T18:36:07.733Z",
+      "sha256": "0ccceee447a90ed20726b657c99d285656a917de1082ddd3cb11b99c7d488e1b",
+      "bytes": 1739256,
+      "compressedBytes": 65759
+    },
+    {
+      "file": "49607-2931666-shotchart.html.gz",
+      "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/match/2931666/shotchart?",
+      "httpStatus": 200,
+      "sourceFetchedAt": "2026-10-07T18:36:09.216Z",
+      "sha256": "41d7844a97e8ef15de7963a646a61962aac072db6e4346aadd566e6a4b9238a0",
+      "bytes": 1182069,
+      "compressedBytes": 56311
+    },
+    {
+      "file": "49607-2931666-analysis.html.gz",
+      "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/match/2931666/analysis?",
+      "httpStatus": 200,
+      "sourceFetchedAt": "2026-10-07T18:36:10.340Z",
+      "sha256": "8fe9d2d536d7880f2030e795c537cfe1e159adec0cf590e66a18c81189e709ee",
+      "bytes": 1093884,
+      "compressedBytes": 52455
+    },
+    {
+      "file": "49607-competition-statistics-team.html.gz",
+      "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/statistics/team?",
+      "httpStatus": 200,
+      "sourceFetchedAt": "2026-10-07T18:36:11.509Z",
+      "sha256": "59ff03dfc07ae9e7aa049c6277e871421a92138e29494e9474a80d58acd06d8d",
+      "bytes": 1109097,
+      "compressedBytes": 54567
+    },
+    {
+      "file": "49609-2915281-playbyplay.html.gz",
+      "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49609/match/2915281/playbyplay?",
+      "httpStatus": 200,
+      "sourceFetchedAt": "2026-10-07T18:36:14.186Z",
+      "sha256": "da62f3fc1abd679107792530ded3979fb5b6b10e2e13032d1c673fc58fb3f645",
+      "bytes": 1682633,
+      "compressedBytes": 64115
+    },
+    {
+      "file": "49609-2915281-shotchart.html.gz",
+      "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49609/match/2915281/shotchart?",
+      "httpStatus": 200,
+      "sourceFetchedAt": "2026-10-07T18:36:15.477Z",
+      "sha256": "3e278eb3daf810688e9427dc7863d69ba756aff2b839dd0ec3aa6f75b1543144",
+      "bytes": 1168117,
+      "compressedBytes": 55553
+    },
+    {
+      "file": "49609-2915281-analysis.html.gz",
+      "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49609/match/2915281/analysis?",
+      "httpStatus": 200,
+      "sourceFetchedAt": "2026-10-07T18:36:16.699Z",
+      "sha256": "f1b3ffc64dd196c5f096894a66ccd5783c85c6f28e3a0ec538c7dc4cd87928cc",
+      "bytes": 1094253,
+      "compressedBytes": 52466
+    },
+    {
+      "file": "49609-competition-statistics-team.html.gz",
+      "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49609/statistics/team?",
+      "httpStatus": 200,
+      "sourceFetchedAt": "2026-10-07T18:36:17.915Z",
+      "sha256": "766e81753cf938d0be1fb4c86b2bfee82a5df04235dfb36bfb5f9258defbf1db",
+      "bytes": 1091760,
+      "compressedBytes": 53670
+    }
+  ]
+}

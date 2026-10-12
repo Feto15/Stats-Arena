@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Analisis Statistik Tim Basket Putra SMA Budi Utama</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm 14mm 14mm;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    line-height: 1.45;
+    font-size: 10.5px;
+    margin: 0;
+    padding: 0;
+  }
+  .header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #2563eb;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .header-left h1 {
+    font-size: 19px;
+    color: #0f172a;
+    margin: 0 0 3px 0;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .header-left p {
+    margin: 0;
+    font-size: 10.5px;
+    color: #64748b;
+  }
+  .badge-group {
+    display: flex;
+    gap: 6px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 9.5px;
+    font-weight: 700;
+  }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-green { background: #dcfce7; color: #15803d; }
+  .badge-purple { background: #f3e8ff; color: #7e22ce; }
+
+  /* Stat Cards */
+  .grid-cards {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px;
+    text-align: center;
+  }
+  .card-label {
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .card-value {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .card-sub {
+    font-size: 8.5px;
+    color: #10b981;
+    font-weight: 600;
+  }
+
+  /* Section Styles */
+  h2 {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0f172a;
+    border-left: 3px solid #2563eb;
+    padding-left: 7px;
+    margin: 12px 0 6px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+  }
+  h3 {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #334155;
+    margin: 8px 0 4px 0;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+    font-size: 9.5px;
+  }
+  th {
+    background-color: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    text-align: left;
+    padding: 4px 5px;
+    border: 1px solid #cbd5e1;
+    font-size: 9px;
+  }
+  td {
+    padding: 3.5px 5px;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+  }
+  tr:nth-child(even) {
+    background-color: #f8fafc;
+  }
+  tr.total-row {
+    background-color: #e2e8f0 !important;
+    font-weight: 800;
+    color: #0f172a;
+    border-top: 2px solid #64748b;
+  }
+  .text-center { text-align: center; }
+  .text-right { text-align: right; }
+  .font-bold { font-weight: 700; }
+  .text-green { color: #16a34a; font-weight: 700; }
+  .text-red { color: #dc2626; font-weight: 700; }
+  .text-blue { color: #2563eb; font-weight: 700; }
+
+  /* Highlights Box */
+  .grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .box-info {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px;
+  }
+  .box-green {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+  }
+  .box-amber {
+    background: #fffbeb;
+    border-color: #fde68a;
+  }
+  .box-title {
+    font-size: 10px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .box-green .box-title { color: #166534; }
+  .box-amber .box-title { color: #92400e; }
+  ul {
+    margin: 0;
+    padding-left: 14px;
+  }
+  li {
+    margin-bottom: 3px;
+    font-size: 9.5px;
+  }
+
+  .player-card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .player-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 7px;
+    background: #ffffff;
+  }
+  .player-name {
+    font-weight: 800;
+    font-size: 10px;
+    color: #0f172a;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 2px;
+    margin-bottom: 3px;
+  }
+  .player-role {
+    font-size: 8px;
+    color: #64748b;
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .player-stat-line {
+    font-size: 9px;
+    color: #334155;
+    margin-bottom: 2px;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+  .footer {
+    margin-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 5px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header-container">
+    <div class="header-left">
+      <h1>ANALISIS STATISTIK TIM BASKET PUTRA</h1>
+      <p><strong>SMA BUDI UTAMA</strong> | Honda DBL with Kopi Good Day D.I. Jogjakarta Series 2026 (Kompetisi ID: 49607)</p>
+    </div>
+    <div class="badge-group">
+      <span class="badge badge-green">REKOR: 3-1</span>
+      <span class="badge badge-blue">JUARA GRUP G</span>
+      <span class="badge badge-purple">FANTASTIC FOUR (BIG FOUR)</span>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="grid-cards">
+    <div class="card">
+      <div class="card-label">Rekor Tim</div>
+      <div class="card-value">3 – 1</div>
+      <div class="card-sub">Win Rate: 75%</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Poin / Game</div>
+      <div class="card-value">54.8</div>
+      <div class="card-sub">Margin +27.5</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Kebobolan / Game</div>
+      <div class="card-value">27.3</div>
+      <div class="card-sub">Elite Defense</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Four Factors Rank</div>
+      <div class="card-value">#4 / 27</div>
+      <div class="card-sub">Net: +9.99</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Steals / Game</div>
+      <div class="card-value">24.3</div>
+      <div class="card-sub">Total 97 STL</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Turnover Lawan</div>
+      <div class="card-value">32.3</div>
+      <div class="card-sub">TOV% Lawan 42.6%</div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: HASIL PERTANDINGAN -->
+  <h2>1. Ringkasan Rekor & Hasil Pertandingan</h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="text-center" style="width: 25px;">No</th>
+        <th>Tanggal</th>
+        <th>Fase / Babak</th>
+        <th>Lawan</th>
+        <th class="text-center">Skor</th>
+        <th class="text-center">Hasil</th>
+        <th class="text-center">2CP (BU vs Lawan)</th>
+        <th>Highlight & Catatan Utama</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="text-center">1</td>
+        <td>28 Sep 2026</td>
+        <td>Penyisihan Grup G</td>
+        <td>SMA Stella Duce 2</td>
+        <td class="text-center font-bold">65 – 13</td>
+        <td class="text-center text-green">MENANG</td>
+        <td class="text-center">17 vs 0</td>
+        <td>Dominasi 22 Steals, 17 Offensive Rebound, Kenzo 17 Poin.</td>
+      </tr>
+      <tr>
+        <td class="text-center">2</td>
+        <td>02 Okt 2026</td>
+        <td>Penyisihan Grup G</td>
+        <td>SMAN 3 Yogyakarta</td>
+        <td class="text-center font-bold">34 – 19</td>
+        <td class="text-center text-green">MENANG</td>
+        <td class="text-center">17 vs 5</td>
+        <td>23 Steals, 20 Offensive Rebound, Mohsin Alwi 11 Rebound (8 OREB).</td>
+      </tr>
+      <tr>
+        <td class="text-center">3</td>
+        <td>05 Okt 2026</td>
+        <td>Perempat Final (Big Eight)</td>
+        <td>SMA Budi Mulia Dua</td>
+        <td class="text-center font-bold">77 – 9</td>
+        <td class="text-center text-green">MENANG</td>
+        <td class="text-center">14 vs 0</td>
+        <td>Lolos ke Semifinal! 37 Steals, 24 Assists, Kenzo 16 Pts (8/9 FG).</td>
+      </tr>
+      <tr>
+        <td class="text-center">4</td>
+        <td>07 Okt 2026</td>
+        <td>Semifinal (Fantastic Four)</td>
+        <td>SMA BOPKRI 1 Yogyakarta</td>
+        <td class="text-center font-bold">43 – 68</td>
+        <td class="text-center text-red">KALAH</td>
+        <td class="text-center">4 vs 23</td>
+        <td>Terhenti di Fantastic Four oleh sang juara; kalah rebound 39 vs 65.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 2: FOUR FACTORS -->
+  <h2>2. Analisis Four Factors (Dean Oliver)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Four Factors (Bobot)</th>
+        <th class="text-center">Nilai Budi Utama</th>
+        <th class="text-center">Peringkat DBL (27 Tim)</th>
+        <th class="text-center">Nilai Lawan (Defense)</th>
+        <th>Analisis Efisiensi Per Possession</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="font-bold">1. Shooting (eFG%) – 40%</td>
+        <td class="text-center font-bold">38.20%</td>
+        <td class="text-center">#5</td>
+        <td class="text-center">29.55%</td>
+        <td>Unggul +8.65% atas lawan; serangan sangat bertumpu pada finishing 2-poin di *paint*.</td>
+      </tr>
+      <tr>
+        <td class="font-bold">2. Turnovers (TOV%) – 25%</td>
+        <td class="text-center font-bold text-green">16.43%</td>
+        <td class="text-center font-bold text-green">#3</td>
+        <td class="text-center text-green">42.60% (#3)</td>
+        <td><strong>Kekuatan terbesar tim (+26.17% margin)</strong>: Penguasaan bola disiplin & *full-court press*.</td>
+      </tr>
+      <tr>
+        <td class="font-bold">3. Rebounding (ORB/DRB) – 20%</td>
+        <td class="text-center font-bold">43.14% (ORB)</td>
+        <td class="text-center">#8</td>
+        <td class="text-center">61.90% (DRB)</td>
+        <td>Agresif di 3 laga awal (ORB > 53%), namun anjlok saat melawan postur tinggi BOSA.</td>
+      </tr>
+      <tr>
+        <td class="font-bold">4. Free Throw Rate (FTR) – 15%</td>
+        <td class="text-center font-bold">22.40%</td>
+        <td class="text-center">#15</td>
+        <td class="text-center">29.22%</td>
+        <td>Rasio lemparan bebas moderat; lawan lebih sering mendapatkan trip ke garis FT.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- MATRIKS FOUR FACTORS PER GAME -->
+  <h3>Matriks Four Factors Laga per Laga</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Pertandingan</th>
+        <th class="text-center">eFG% (BU vs Lawan)</th>
+        <th class="text-center">TOV% (BU vs Lawan)</th>
+        <th class="text-center">ORB% (BU)</th>
+        <th class="text-center">DRB% (BU)</th>
+        <th class="text-center">FT Rate (BU vs Lawan)</th>
+        <th class="text-center">Net Game Rating</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>vs SMA Stella Duce 2 (65–13)</td>
+        <td class="text-center">49.17% vs 19.70%</td>
+        <td class="text-center">13.44% vs 47.62%</td>
+        <td class="text-center">58.62%</td>
+        <td class="text-center">56.00%</td>
+        <td class="text-center">16.67% vs 15.15%</td>
+        <td class="text-center text-green font-bold">+23.40 (Dominan)</td>
+      </tr>
+      <tr>
+        <td>vs SMAN 3 Yogyakarta (34–19)</td>
+        <td class="text-center">25.00% vs 24.00%</td>
+        <td class="text-center">16.69% vs 48.50%</td>
+        <td class="text-center">46.51%</td>
+        <td class="text-center">54.55%</td>
+        <td class="text-center">34.62% vs 72.00%</td>
+        <td class="text-center text-green font-bold">+9.82 (Defense Solid)</td>
+      </tr>
+      <tr>
+        <td>vs SMA Budi Mulia Dua (77–9)</td>
+        <td class="text-center">50.00% vs 15.38%</td>
+        <td class="text-center">12.51% vs 60.21%</td>
+        <td class="text-center">56.76%</td>
+        <td class="text-center">73.91%</td>
+        <td class="text-center">12.33% vs 15.38%</td>
+        <td class="text-center text-green font-bold">+31.25 (Puncak)</td>
+      </tr>
+      <tr>
+        <td>vs SMA BOPKRI 1 (43–68)</td>
+        <td class="text-center">25.38% vs 40.00%</td>
+        <td class="text-center">22.26% vs 22.76%</td>
+        <td class="text-center">17.39%</td>
+        <td class="text-center">51.16%</td>
+        <td class="text-center">29.23% vs 37.14%</td>
+        <td class="text-center text-red font-bold">-13.20 (Size Deficit)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- SECTION 3: TABEL PEMAIN DENGAN BARIS TOTAL TIM -->
+  <h2>3. Statistik Lengkap Individu Pemain (Rata-rata per Game & Baris Total Tim)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="text-center">No</th>
+        <th>Nama Pemain</th>
+        <th class="text-center">Pos</th>
+        <th class="text-center">GP</th>
+        <th class="text-center">MIN</th>
+        <th class="text-center">PPG</th>
+        <th class="text-center">FG%</th>
+        <th class="text-center">2P%</th>
+        <th class="text-center">3P%</th>
+        <th class="text-center">FT%</th>
+        <th class="text-center">RPG</th>
+        <th class="text-center">OREB</th>
+        <th class="text-center">DREB</th>
+        <th class="text-center">APG</th>
+        <th class="text-center">SPG</th>
+        <th class="text-center">BPG</th>
+        <th class="text-center">TOPG</th>
+        <th class="text-center">EFF/G</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="text-center font-bold">1</td>
+        <td class="font-bold">Kenzo Tristano</td>
+        <td class="text-center">#7</td>
+        <td class="text-center">4</td>
+        <td class="text-center">24.9</td>
+        <td class="text-center font-bold text-blue">14.0</td>
+        <td class="text-center">45.8%</td>
+        <td class="text-center font-bold">55.3%</td>
+        <td class="text-center">10.0%</td>
+        <td class="text-center font-bold">73.3%</td>
+        <td class="text-center font-bold">5.5</td>
+        <td class="text-center">2.5</td>
+        <td class="text-center">3.0</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center font-bold">3.5</td>
+        <td class="text-center">0.5</td>
+        <td class="text-center">2.3</td>
+        <td class="text-center font-bold text-blue">14.5</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">2</td>
+        <td class="font-bold">Arvin Rafael Nerva</td>
+        <td class="text-center">#8</td>
+        <td class="text-center">4</td>
+        <td class="text-center">22.5</td>
+        <td class="text-center font-bold">6.8</td>
+        <td class="text-center">29.3%</td>
+        <td class="text-center">37.5%</td>
+        <td class="text-center">17.6%</td>
+        <td class="text-center">0.0%</td>
+        <td class="text-center">3.8</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">3.0</td>
+        <td class="text-center font-bold text-blue">2.8</td>
+        <td class="text-center font-bold">3.5</td>
+        <td class="text-center">0.5</td>
+        <td class="text-center">2.3</td>
+        <td class="text-center font-bold">7.5</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">3</td>
+        <td class="font-bold">Mohsin Alwi</td>
+        <td class="text-center">#25</td>
+        <td class="text-center">4</td>
+        <td class="text-center">22.1</td>
+        <td class="text-center font-bold">6.3</td>
+        <td class="text-center">47.6%</td>
+        <td class="text-center">50.0%</td>
+        <td class="text-center">0.0%</td>
+        <td class="text-center">55.6%</td>
+        <td class="text-center font-bold text-blue">7.3</td>
+        <td class="text-center font-bold text-blue">4.0</td>
+        <td class="text-center">3.3</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">1.5</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center font-bold text-blue">11.3</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">4</td>
+        <td class="font-bold">Abiel Kriston Anwar</td>
+        <td class="text-center">#20</td>
+        <td class="text-center">4</td>
+        <td class="text-center">14.9</td>
+        <td class="text-center font-bold">5.3</td>
+        <td class="text-center">45.5%</td>
+        <td class="text-center">50.0%</td>
+        <td class="text-center">0.0%</td>
+        <td class="text-center">20.0%</td>
+        <td class="text-center">4.0</td>
+        <td class="text-center">2.5</td>
+        <td class="text-center">1.5</td>
+        <td class="text-center">1.0</td>
+        <td class="text-center font-bold">3.5</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">1.8</td>
+        <td class="text-center font-bold">8.0</td>
+      </tr>
+      <tr>
+        <td class="text-center">5</td>
+        <td>Fitzgerald Hermawan</td>
+        <td class="text-center">#3</td>
+        <td class="text-center">4</td>
+        <td class="text-center">20.9</td>
+        <td class="text-center">4.3</td>
+        <td class="text-center">25.0%</td>
+        <td class="text-center">41.7%</td>
+        <td class="text-center">8.3%</td>
+        <td class="text-center">40.0%</td>
+        <td class="text-center">2.8</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">2.0</td>
+        <td class="text-center">1.8</td>
+        <td class="text-center">2.0</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">1.0</td>
+        <td class="text-center">3.8</td>
+      </tr>
+      <tr>
+        <td class="text-center">6</td>
+        <td>M. Nafis Rabbani Firdaus</td>
+        <td class="text-center">#46</td>
+        <td class="text-center">4</td>
+        <td class="text-center">18.0</td>
+        <td class="text-center">4.3</td>
+        <td class="text-center">28.6%</td>
+        <td class="text-center">25.0%</td>
+        <td class="text-center">33.3%</td>
+        <td class="text-center">100%</td>
+        <td class="text-center">0.3</td>
+        <td class="text-center">0.3</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">2.3</td>
+        <td class="text-center">0.3</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">3.3</td>
+      </tr>
+      <tr>
+        <td class="text-center">7</td>
+        <td>Gabriel Orlando Kristianto</td>
+        <td class="text-center">#14</td>
+        <td class="text-center">4</td>
+        <td class="text-center">10.9</td>
+        <td class="text-center">3.5</td>
+        <td class="text-center">40.0%</td>
+        <td class="text-center">50.0%</td>
+        <td class="text-center">28.6%</td>
+        <td class="text-center">0.0%</td>
+        <td class="text-center">1.0</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">0.3</td>
+        <td class="text-center">0.5</td>
+        <td class="text-center">2.3</td>
+        <td class="text-center">0.3</td>
+        <td class="text-center">0.5</td>
+        <td class="text-center">4.5</td>
+      </tr>
+      <tr>
+        <td class="text-center">8</td>
+        <td>Aslan Arsyafi Rahardhi</td>
+        <td class="text-center">#18</td>
+        <td class="text-center">4</td>
+        <td class="text-center">10.6</td>
+        <td class="text-center">3.0</td>
+        <td class="text-center">50.0%</td>
+        <td class="text-center">60.0%</td>
+        <td class="text-center">40.0%</td>
+        <td class="text-center">-</td>
+        <td class="text-center">1.5</td>
+        <td class="text-center">1.0</td>
+        <td class="text-center">0.5</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">1.0</td>
+        <td class="text-center">3.0</td>
+      </tr>
+      <tr>
+        <td class="text-center">9</td>
+        <td>Cedric Whitsel Melandri</td>
+        <td class="text-center">#5</td>
+        <td class="text-center">4</td>
+        <td class="text-center">11.7</td>
+        <td class="text-center">3.0</td>
+        <td class="text-center">19.0%</td>
+        <td class="text-center">30.8%</td>
+        <td class="text-center">0.0%</td>
+        <td class="text-center">66.7%</td>
+        <td class="text-center">1.5</td>
+        <td class="text-center">1.0</td>
+        <td class="text-center">0.5</td>
+        <td class="text-center">1.5</td>
+        <td class="text-center">1.3</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">1.8</td>
+      </tr>
+      <tr>
+        <td class="text-center">10</td>
+        <td>Marcelinus Doan Dimas</td>
+        <td class="text-center">#89</td>
+        <td class="text-center">4</td>
+        <td class="text-center">21.2</td>
+        <td class="text-center">2.5</td>
+        <td class="text-center">38.5%</td>
+        <td class="text-center">41.7%</td>
+        <td class="text-center">0.0%</td>
+        <td class="text-center">0.0%</td>
+        <td class="text-center">2.8</td>
+        <td class="text-center">1.3</td>
+        <td class="text-center">1.5</td>
+        <td class="text-center">1.0</td>
+        <td class="text-center">2.3</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">1.3</td>
+        <td class="text-center">4.5</td>
+      </tr>
+      <tr>
+        <td class="text-center">11</td>
+        <td>Johanes Rey Nanjaya</td>
+        <td class="text-center">#99</td>
+        <td class="text-center">4</td>
+        <td class="text-center">10.1</td>
+        <td class="text-center">1.3</td>
+        <td class="text-center">25.0%</td>
+        <td class="text-center">28.6%</td>
+        <td class="text-center">-</td>
+        <td class="text-center">50.0%</td>
+        <td class="text-center">1.3</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">1.3</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">0.5</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">2.0</td>
+      </tr>
+      <tr>
+        <td class="text-center">12</td>
+        <td>Billy Osvaldo Hermawan</td>
+        <td class="text-center">#0</td>
+        <td class="text-center">4</td>
+        <td class="text-center">12.1</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">16.7%</td>
+        <td class="text-center">0.0%</td>
+        <td class="text-center">33.3%</td>
+        <td class="text-center">-</td>
+        <td class="text-center">1.3</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">1.3</td>
+        <td class="text-center">0.8</td>
+        <td class="text-center">1.0</td>
+        <td class="text-center">0.3</td>
+        <td class="text-center">0.0</td>
+        <td class="text-center">2.3</td>
+      </tr>
+      <!-- BARIS TOTAL TIM -->
+      <tr class="total-row">
+        <td class="text-center font-bold">TOTAL</td>
+        <td class="font-bold">TOTAL TIM</td>
+        <td class="text-center">-</td>
+        <td class="text-center font-bold">4</td>
+        <td class="text-center font-bold">200.0</td>
+        <td class="text-center font-bold text-blue">54.8</td>
+        <td class="text-center font-bold">35.6%</td>
+        <td class="text-center font-bold">43.7%</td>
+        <td class="text-center font-bold">17.1%</td>
+        <td class="text-center font-bold">50.0%</td>
+        <td class="text-center font-bold text-blue">36.8</td>
+        <td class="text-center font-bold">16.5</td>
+        <td class="text-center font-bold">20.3</td>
+        <td class="text-center font-bold text-blue">12.3</td>
+        <td class="text-center font-bold text-blue">24.3</td>
+        <td class="text-center font-bold">1.8</td>
+        <td class="text-center font-bold">13.5</td>
+        <td class="text-center font-bold text-blue">66.3</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 4: PEMAIN KUNCI -->
+  <h2>4. Profil & Peran Pemain Kunci</h2>
+  <div class="player-card-grid">
+    <div class="player-card">
+      <div class="player-name">#7 Kenzo Tristano</div>
+      <div class="player-role">Primary Scoring Option</div>
+      <div class="player-stat-line">• <strong>14.0 PPG</strong> | 5.5 RPG | 3.5 SPG</div>
+      <div class="player-stat-line">• 55.3% 2P | 73.3% FT</div>
+      <div class="player-stat-line">• Efisiensi: <strong>14.5 / game</strong></div>
+    </div>
+    <div class="player-card">
+      <div class="player-name">#25 Mohsin Alwi</div>
+      <div class="player-role">Interior Anchor & Rebound</div>
+      <div class="player-stat-line">• <strong>7.3 RPG</strong> (4.0 OREB/G) | 6.3 PPG</div>
+      <div class="player-stat-line">• 50.0% 2P | 11.3 Efisiensi</div>
+      <div class="player-stat-line">• Jangkar *second chance pts*</div>
+    </div>
+    <div class="player-card">
+      <div class="player-name">#8 Arvin Rafael Nerva</div>
+      <div class="player-role">Lead Playmaker & Perimeter</div>
+      <div class="player-stat-line">• <strong>2.8 APG</strong> | 3.8 RPG | 3.5 SPG</div>
+      <div class="player-stat-line">• 6.8 PPG | 7.5 Efisiensi</div>
+      <div class="player-stat-line">• Inisiator transisi cepat</div>
+    </div>
+    <div class="player-card">
+      <div class="player-name">#20 Abiel Kriston Anwar</div>
+      <div class="player-role">Hustle & Defensive Wing</div>
+      <div class="player-stat-line">• <strong>3.5 SPG</strong> | 4.0 RPG | 5.3 PPG</div>
+      <div class="player-stat-line">• 50.0% 2P | 8.0 Efisiensi</div>
+      <div class="player-stat-line">• 7 steals di laga vs BMD</div>
+    </div>
+  </div>
+
+  <!-- SECTION 5: EVALUASI TAKTIS -->
+  <h2>5. Evaluasi Taktis & Rekomendasi Masa Depan</h2>
+  <div class="grid-2col">
+    <div class="box-info box-green">
+      <div class="box-title">✅ Keunggulan Kompetitif (Strengths)</div>
+      <ul>
+        <li><strong>Pertahanan Trap & Steals Elit:</strong> Menghasilkan 24.3 steals dan memaksa 32.3 TOV lawan per laga (+26.17% turnover margin).</li>
+        <li><strong>Transisi 2-Poin Efisien:</strong> Konversi serangan cepat Kenzo & Abiel menghasilkan 43.7%–56.9% 2P%.</li>
+        <li><strong>Ofensif Rebound Agresif:</strong> Rata-rata 16.5 OREB per game menghasilkan 13.0 second chance points.</li>
+      </ul>
+    </div>
+    <div class="box-info box-amber">
+      <div class="box-title">⚠️ Ruang Pembenahan (Areas for Improvement)</div>
+      <ul>
+        <li><strong>Akurasi Tembakan Tripoin (17.1%):</strong> Hanya 13/76 3PT. Perlu diversifikasi senjata perimeter agar *spacing* tidak tertutup.</li>
+        <li><strong>Kelemahan Size vs Tim Tier 1:</strong> Menghadapi postur tinggi BOSA, ORB% anjlok ke 17.4% dan kalah rebound 39 vs 65.</li>
+        <li><strong>Akurasi Free Throw (50.0%):</strong> Terlalu banyak poin gratis terbuang dari garis lemparan bebas.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>StatsArena Analytics Platform • Honda DBL D.I. Jogjakarta Series 2026</span>
+    <span>Dokumen Resmi Analisis Statistik Tim</span>
+  </div>
+
+</body>
+</html>

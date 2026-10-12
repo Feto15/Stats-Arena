@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2100" viewBox="0 0 1600 2100" role="img" aria-labelledby="title desc">
+  <title id="title">Preview Final Putri — Budi Utama vs Stella Duce 1</title>
+  <desc id="desc">Perbandingan Four Factors dua finalis putri DBL DI Jogjakarta Series 2026 sebelum pertandingan final.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10263d"/>
+      <stop offset="1" stop-color="#173b53"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#142235" flood-opacity=".08"/>
+    </filter>
+    <style>
+      text { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; }
+      .ink { fill: #17283a; }
+      .muted { fill: #607184; }
+      .white { fill: #fffdf8; }
+      .num { font-variant-numeric: tabular-nums; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="2100" fill="#f3f0e8"/>
+  <rect width="1600" height="320" fill="url(#header)"/>
+  <g opacity=".11" fill="none" stroke="#d9e6eb" stroke-width="3">
+    <circle cx="1440" cy="130" r="180"/>
+    <path d="M1260 130h360M1440 -50v360M1313 3l254 254M1567 3l-254 254"/>
+    <path d="M1260 130a180 180 0 0 0 360 0M1440 -50a180 180 0 0 1 0 360"/>
+  </g>
+  <text x="96" y="70" fill="#ffb486" font-size="19" font-weight="750" letter-spacing="2">DBL DI JOGJAKARTA SERIES 2026  ·  KOMPETISI 49609</text>
+  <text x="96" y="158" class="white" font-size="68" font-weight="850" letter-spacing="-1">FINAL PREVIEW</text>
+  <text x="100" y="210" fill="#dce7ec" font-size="29" font-weight="650">FOUR FACTORS PUTRI</text>
+  <text x="100" y="270" fill="#b8cbd4" font-size="22">10 Oktober 2026  ·  14:40 WIB  ·  Game 2938167</text>
+
+  <g filter="url(#shadow)">
+    <rect x="80" y="370" width="700" height="300" rx="24" fill="#fffdf8"/>
+    <rect x="80" y="370" width="10" height="300" rx="5" fill="#1b998b"/>
+    <text x="125" y="423" class="ink" font-size="30" font-weight="800">SMA BUDI UTAMA</text>
+    <text x="125" y="460" fill="#18766d" font-size="20" font-weight="750">REKOR 4–0  ·  TAK TERKALAHKAN</text>
+    <text x="125" y="558" class="ink num" font-size="66" font-weight="850">55.02</text>
+    <text x="128" y="594" class="muted" font-size="18" font-weight="750" letter-spacing="1.4">OVERALL RATING</text>
+    <line x1="420" y1="490" x2="420" y2="625" stroke="#e7e4db" stroke-width="2"/>
+    <text x="463" y="510" class="muted" font-size="17" font-weight="700">SERANGAN</text><text x="690" y="510" text-anchor="end" class="ink num" font-size="24" font-weight="800">43.08</text>
+    <text x="463" y="554" class="muted" font-size="17" font-weight="700">PERTAHANAN</text><text x="690" y="554" text-anchor="end" class="ink num" font-size="24" font-weight="800">66.97</text>
+    <text x="463" y="598" class="muted" font-size="17" font-weight="700">NET SCORE</text><text x="690" y="598" text-anchor="end" fill="#18766d" class="num" font-size="24" font-weight="850">+10.05</text>
+  </g>
+  <text x="800" y="535" text-anchor="middle" fill="#f1784b" font-size="25" font-weight="850" letter-spacing="1">VS</text>
+  <g filter="url(#shadow)">
+    <rect x="820" y="370" width="700" height="300" rx="24" fill="#fffdf8"/>
+    <rect x="820" y="370" width="10" height="300" rx="5" fill="#9b68c8"/>
+    <text x="865" y="423" class="ink" font-size="30" font-weight="800">SMA STELLA DUCE 1</text>
+    <text x="865" y="460" fill="#8151ab" font-size="20" font-weight="750">REKOR 3–1</text>
+    <text x="865" y="558" class="ink num" font-size="66" font-weight="850">51.90</text>
+    <text x="868" y="594" class="muted" font-size="18" font-weight="750" letter-spacing="1.4">OVERALL RATING</text>
+    <line x1="1160" y1="490" x2="1160" y2="625" stroke="#e7e4db" stroke-width="2"/>
+    <text x="1203" y="510" class="muted" font-size="17" font-weight="700">SERANGAN</text><text x="1490" y="510" text-anchor="end" class="ink num" font-size="24" font-weight="800">45.55</text>
+    <text x="1203" y="554" class="muted" font-size="17" font-weight="700">PERTAHANAN</text><text x="1490" y="554" text-anchor="end" class="ink num" font-size="24" font-weight="800">58.24</text>
+    <text x="1203" y="598" class="muted" font-size="17" font-weight="700">NET SCORE</text><text x="1490" y="598" text-anchor="end" fill="#8151ab" class="num" font-size="24" font-weight="850">+3.80</text>
+  </g>
+
+  <text x="88" y="739" class="ink" font-size="33" font-weight="850">EMPAT FAKTOR SERANGAN</text>
+  <text x="90" y="775" class="muted" font-size="19">Akumulasi 4 laga  ·  TOV% lebih rendah lebih baik</text>
+  <rect x="80" y="800" width="1440" height="330" rx="24" fill="#fffdf8" filter="url(#shadow)"/>
+  <text x="710" y="847" text-anchor="middle" class="muted" font-size="17" font-weight="750" letter-spacing="1">BUDI UTAMA</text>
+  <text x="1060" y="847" text-anchor="middle" class="muted" font-size="17" font-weight="750" letter-spacing="1">STELLA DUCE 1</text>
+  <text x="1375" y="847" text-anchor="middle" class="muted" font-size="16" font-weight="750" letter-spacing="1">UNGGUL</text>
+  <g font-size="22">
+    <line x1="125" y1="865" x2="1480" y2="865" stroke="#e7e4db" stroke-width="2"/>
+    <text x="130" y="910" class="ink" font-weight="750">eFG%</text><text x="710" y="910" text-anchor="middle" class="ink num">31.86%</text><text x="1060" y="910" text-anchor="middle" fill="#8151ab" class="num" font-weight="850">33.18%</text><rect x="1310" y="882" width="130" height="38" rx="19" fill="#f0e7f7"/><text x="1375" y="908" text-anchor="middle" fill="#8151ab" font-size="16" font-weight="800">STELLA</text>
+    <line x1="125" y1="930" x2="1480" y2="930" stroke="#eeece6" stroke-width="1.5"/>
+    <text x="130" y="973" class="ink" font-weight="750">TOV%</text><text x="710" y="973" text-anchor="middle" class="ink num">28.10%</text><text x="1060" y="973" text-anchor="middle" fill="#8151ab" class="num" font-weight="850">27.72%</text><rect x="1310" y="945" width="130" height="38" rx="19" fill="#f0e7f7"/><text x="1375" y="971" text-anchor="middle" fill="#8151ab" font-size="16" font-weight="800">STELLA</text>
+    <line x1="125" y1="993" x2="1480" y2="993" stroke="#eeece6" stroke-width="1.5"/>
+    <text x="130" y="1036" class="ink" font-weight="750">ORB%</text><text x="710" y="1036" text-anchor="middle" class="ink num">41.94%</text><text x="1060" y="1036" text-anchor="middle" fill="#8151ab" class="num" font-weight="850">46.15%</text><rect x="1310" y="1008" width="130" height="38" rx="19" fill="#f0e7f7"/><text x="1375" y="1034" text-anchor="middle" fill="#8151ab" font-size="16" font-weight="800">STELLA</text>
+    <line x1="125" y1="1056" x2="1480" y2="1056" stroke="#eeece6" stroke-width="1.5"/>
+    <text x="130" y="1099" class="ink" font-weight="750">FT Rate</text><text x="710" y="1099" text-anchor="middle" class="ink num">26.47%</text><text x="1060" y="1099" text-anchor="middle" fill="#8151ab" class="num" font-weight="850">33.18%</text><rect x="1310" y="1071" width="130" height="38" rx="19" fill="#f0e7f7"/><text x="1375" y="1097" text-anchor="middle" fill="#8151ab" font-size="16" font-weight="800">STELLA</text>
+  </g>
+
+  <text x="88" y="1190" class="ink" font-size="33" font-weight="850">EMPAT FAKTOR PERTAHANAN</text>
+  <text x="90" y="1226" class="muted" font-size="19">Akumulasi 4 laga  ·  Opp eFG% dan Opp FT Rate lebih rendah lebih baik</text>
+  <rect x="80" y="1250" width="1440" height="330" rx="24" fill="#fffdf8" filter="url(#shadow)"/>
+  <text x="710" y="1297" text-anchor="middle" class="muted" font-size="17" font-weight="750" letter-spacing="1">BUDI UTAMA</text>
+  <text x="1060" y="1297" text-anchor="middle" class="muted" font-size="17" font-weight="750" letter-spacing="1">STELLA DUCE 1</text>
+  <text x="1375" y="1297" text-anchor="middle" class="muted" font-size="16" font-weight="750" letter-spacing="1">UNGGUL</text>
+  <g font-size="22">
+    <line x1="125" y1="1315" x2="1480" y2="1315" stroke="#e7e4db" stroke-width="2"/>
+    <text x="130" y="1360" class="ink" font-weight="750">Opp eFG%</text><text x="710" y="1360" text-anchor="middle" fill="#18766d" class="num" font-weight="850">16.67%</text><text x="1060" y="1360" text-anchor="middle" class="ink num">27.01%</text><rect x="1310" y="1332" width="130" height="38" rx="19" fill="#dff1ee"/><text x="1375" y="1358" text-anchor="middle" fill="#18766d" font-size="16" font-weight="800">BUDI</text>
+    <line x1="125" y1="1380" x2="1480" y2="1380" stroke="#eeece6" stroke-width="1.5"/>
+    <text x="130" y="1423" class="ink" font-weight="750">Opp TOV% forced</text><text x="710" y="1423" text-anchor="middle" fill="#18766d" class="num" font-weight="850">49.78%</text><text x="1060" y="1423" text-anchor="middle" class="ink num">47.47%</text><rect x="1310" y="1395" width="130" height="38" rx="19" fill="#dff1ee"/><text x="1375" y="1421" text-anchor="middle" fill="#18766d" font-size="16" font-weight="800">BUDI</text>
+    <line x1="125" y1="1443" x2="1480" y2="1443" stroke="#eeece6" stroke-width="1.5"/>
+    <text x="130" y="1486" class="ink" font-weight="750">DRB%</text><text x="710" y="1486" text-anchor="middle" fill="#18766d" class="num" font-weight="850">61.76%</text><text x="1060" y="1486" text-anchor="middle" class="ink num">55.24%</text><rect x="1310" y="1458" width="130" height="38" rx="19" fill="#dff1ee"/><text x="1375" y="1484" text-anchor="middle" fill="#18766d" font-size="16" font-weight="800">BUDI</text>
+    <line x1="125" y1="1506" x2="1480" y2="1506" stroke="#eeece6" stroke-width="1.5"/>
+    <text x="130" y="1549" class="ink" font-weight="750">Opp FT Rate</text><text x="710" y="1549" text-anchor="middle" fill="#18766d" class="num" font-weight="850">41.09%</text><text x="1060" y="1549" text-anchor="middle" class="ink num">59.12%</text><rect x="1310" y="1521" width="130" height="38" rx="19" fill="#dff1ee"/><text x="1375" y="1547" text-anchor="middle" fill="#18766d" font-size="16" font-weight="800">BUDI</text>
+  </g>
+
+  <text x="88" y="1640" class="ink" font-size="33" font-weight="850">JALAN KE FINAL</text>
+  <text x="90" y="1675" class="muted" font-size="19">Hasil Fantastic Four  ·  8 Oktober 2026</text>
+  <g filter="url(#shadow)">
+    <rect x="80" y="1700" width="700" height="200" rx="24" fill="#fffdf8"/>
+    <rect x="80" y="1700" width="10" height="200" rx="5" fill="#1b998b"/>
+    <text x="125" y="1750" fill="#18766d" font-size="17" font-weight="800" letter-spacing="1.2">FINALIS PERTAMA</text>
+    <text x="125" y="1801" class="ink" font-size="28" font-weight="800">BUDI UTAMA  40 — 28  BOPKRI 1</text>
+    <text x="125" y="1848" class="muted" font-size="18">Semifinal · Game 2934779</text>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="820" y="1700" width="700" height="200" rx="24" fill="#fffdf8"/>
+    <rect x="820" y="1700" width="10" height="200" rx="5" fill="#9b68c8"/>
+    <text x="865" y="1750" fill="#8151ab" font-size="17" font-weight="800" letter-spacing="1.2">FINALIS KEDUA</text>
+    <text x="865" y="1801" class="ink" font-size="27" font-weight="800">STELLA DUCE 1  65 — 25  MUHAMMADIYAH 1</text>
+    <text x="865" y="1848" class="muted" font-size="18">Semifinal · Game 2934780</text>
+  </g>
+
+  <text x="88" y="1962" fill="#607184" font-size="17">Data komposit memakai sampel 4 laga sebelum final; rating skala 0–100, bukan probabilitas menang.</text>
+  <text x="1512" y="1962" text-anchor="end" fill="#607184" font-size="17">STATSARENA  ·  2026</text>
+</svg>

@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Analisis Statistik Hasil Laga Final Putri DBL Jogja 2026</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm 14mm 14mm;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    line-height: 1.45;
+    font-size: 10px;
+    margin: 0;
+    padding: 0;
+  }
+  .header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #e11d48;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .header-left h1 {
+    font-size: 18px;
+    color: #0f172a;
+    margin: 0 0 3px 0;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .header-left p {
+    margin: 0;
+    font-size: 10.5px;
+    color: #64748b;
+  }
+  .badge-group {
+    display: flex;
+    gap: 6px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 9.5px;
+    font-weight: 700;
+  }
+  .badge-gold { background: #fef08a; color: #854d0e; }
+  .badge-silver { background: #e2e8f0; color: #334155; }
+  .badge-red { background: #ffe4e6; color: #e11d48; }
+
+  /* Stat Cards */
+  .grid-cards {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px;
+    text-align: center;
+  }
+  .card-label {
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .card-value {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .card-sub {
+    font-size: 8.5px;
+    color: #e11d48;
+    font-weight: 600;
+  }
+
+  /* Section Styles */
+  h2 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    border-left: 3px solid #e11d48;
+    padding-left: 7px;
+    margin: 12px 0 6px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+  }
+  h3 {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #334155;
+    margin: 8px 0 4px 0;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+    font-size: 9px;
+  }
+  th {
+    background-color: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    text-align: left;
+    padding: 3.5px 5px;
+    border: 1px solid #cbd5e1;
+    font-size: 8.5px;
+  }
+  td {
+    padding: 3px 5px;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+  }
+  tr:nth-child(even) {
+    background-color: #f8fafc;
+  }
+  tr.total-row {
+    background-color: #e2e8f0 !important;
+    font-weight: 800;
+    color: #0f172a;
+    border-top: 2px solid #64748b;
+  }
+  .text-center { text-align: center; }
+  .text-right { text-align: right; }
+  .font-bold { font-weight: 700; }
+  .text-green { color: #16a34a; font-weight: 700; }
+  .text-red { color: #dc2626; font-weight: 700; }
+  .text-blue { color: #2563eb; font-weight: 700; }
+
+  /* Highlights Box */
+  .grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .box-info {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px;
+  }
+  .box-green {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+  }
+  .box-amber {
+    background: #fffbeb;
+    border-color: #fde68a;
+  }
+  .box-title {
+    font-size: 10px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .box-green .box-title { color: #166534; }
+  .box-amber .box-title { color: #92400e; }
+  ul {
+    margin: 0;
+    padding-left: 14px;
+  }
+  li {
+    margin-bottom: 3px;
+    font-size: 9px;
+  }
+
+  .player-card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .player-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px;
+    background: #ffffff;
+  }
+  .player-name {
+    font-weight: 800;
+    font-size: 9.5px;
+    color: #0f172a;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 2px;
+    margin-bottom: 3px;
+  }
+  .player-role {
+    font-size: 8px;
+    color: #64748b;
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .player-stat-line {
+    font-size: 8.5px;
+    color: #334155;
+    margin-bottom: 2px;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+  .footer {
+    margin-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 5px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header-container">
+    <div class="header-left">
+      <h1>ANALISIS STATISTIK HASIL LAGA FINAL PUTRI</h1>
+      <p>Honda DBL with Kopi Good Day D.I. Jogjakarta Series 2026 (Kompetisi ID: 49609 | Game ID: 2938167)</p>
+    </div>
+    <div class="badge-group">
+      <span class="badge badge-gold">STECE: CHAMPIONS</span>
+      <span class="badge badge-silver">BUDI UTAMA: RUNNER-UP</span>
+      <span class="badge badge-red">SKOR: 61 - 50</span>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="grid-cards">
+    <div class="card">
+      <div class="card-label">Skor Akhir</div>
+      <div class="card-value">61 – 50</div>
+      <div class="card-sub">Margin +11 STECE</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Percobaan FG</div>
+      <div class="card-value">83 vs 43</div>
+      <div class="card-sub">Stece +40 FGA</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Points in Paint</div>
+      <div class="card-value">54 vs 26</div>
+      <div class="card-sub">Stece +28 Paint Pts</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Steals Tim</div>
+      <div class="card-value">39 vs 26</div>
+      <div class="card-sub">Total 65 Steals</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Turnover Lawan</div>
+      <div class="card-value">58 TOV</div>
+      <div class="card-sub">TOV% Budi Utama 50.6%</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Off. Rebound</div>
+      <div class="card-value">26 vs 7</div>
+      <div class="card-sub">Stece 45.6% ORB</div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: RINGKASAN HASIL -->
+  <h2>1. Ringkasan Hasil Pertandingan Final Putri</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Tim Finalis</th>
+        <th class="text-center">Skor</th>
+        <th class="text-center">Status</th>
+        <th class="text-center">FG (Akurasi)</th>
+        <th class="text-center">2P (Akurasi)</th>
+        <th class="text-center">3P (Akurasi)</th>
+        <th class="text-center">FT (Akurasi)</th>
+        <th class="text-center">REB (O/D)</th>
+        <th class="text-center">TO</th>
+        <th class="text-center">STL</th>
+        <th class="text-center">Paint Pts</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="font-bold">SMA Stella Duce 1 Yogyakarta (STECE)</td>
+        <td class="text-center font-bold text-red">61</td>
+        <td class="text-center font-bold text-green">CHAMPIONS</td>
+        <td class="text-center">28/83 (33.7%)</td>
+        <td class="text-center">28/75 (37.3%)</td>
+        <td class="text-center">0/8 (0.0%)</td>
+        <td class="text-center">5/23 (21.7%)</td>
+        <td class="text-center font-bold">52 (26/20)</td>
+        <td class="text-center">42</td>
+        <td class="text-center font-bold text-red">39</td>
+        <td class="text-center font-bold text-red">54</td>
+      </tr>
+      <tr>
+        <td class="font-bold">SMA Budi Utama (Putri)</td>
+        <td class="text-center font-bold">50</td>
+        <td class="text-center font-bold text-blue">RUNNER-UP</td>
+        <td class="text-center">16/43 (37.2%)</td>
+        <td class="text-center">13/31 (41.9%)</td>
+        <td class="text-center">3/12 (25.0%)</td>
+        <td class="text-center">15/31 (48.4%)</td>
+        <td class="text-center">42 (7/31)</td>
+        <td class="text-center text-red font-bold">58</td>
+        <td class="text-center">26</td>
+        <td class="text-center">26</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 2: PERBANDINGAN KOLEKTIF TIM -->
+  <h2>2. Perbandingan Statistik Kolektif Tim (Team Comparison)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Parameter Statistik</th>
+        <th class="text-center">SMA Stella Duce 1 (STECE)</th>
+        <th class="text-center">SMA Budi Utama</th>
+        <th>Margin & Evaluasi Taktis</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="font-bold">Skor Akhir (PTS)</td>
+        <td class="text-center font-bold text-red">61 Poin</td>
+        <td class="text-center font-bold">50 Poin</td>
+        <td><strong>+11 untuk STECE</strong></td>
+      </tr>
+      <tr>
+        <td>Percobaan Tembakan (FGA)</td>
+        <td class="text-center font-bold">83 Percobaan</td>
+        <td class="text-center">43 Percobaan</td>
+        <td><strong>Stece melepaskan +40 tembakan lebih banyak</strong></td>
+      </tr>
+      <tr>
+        <td>Akurasi Tembakan (FG%)</td>
+        <td class="text-center">28 / 83 (33.7%)</td>
+        <td class="text-center font-bold">16 / 43 (37.2%)</td>
+        <td>Budi Utama lebih akurat, tapi kalah telak volume</td>
+      </tr>
+      <tr>
+        <td>Points in the Paint (PIP)</td>
+        <td class="text-center font-bold text-red">54 Poin</td>
+        <td class="text-center">26 Poin</td>
+        <td><strong>Stece mendominasi total area bawah ring (+28 Poin)</strong></td>
+      </tr>
+      <tr>
+        <td>Offensive Rebounds</td>
+        <td class="text-center font-bold">26 OREB</td>
+        <td class="text-center">7 OREB</td>
+        <td>Stece menghasilkan ekstra 19 kali second-chance possession</td>
+      </tr>
+      <tr>
+        <td>Turnovers (TO)</td>
+        <td class="text-center">42 TOV</td>
+        <td class="text-center font-bold text-red">58 TOV</td>
+        <td><strong>Kunci Laga: Budi Utama kehilangan bola 58 kali</strong></td>
+      </tr>
+      <tr>
+        <td>Steals (STL)</td>
+        <td class="text-center font-bold text-red">39 Steals</td>
+        <td class="text-center">26 Steals</td>
+        <td>Total 65 Steals di laga ini (Full-court chaos pace)</td>
+      </tr>
+      <tr>
+        <td>Free Throws (FTM/FTA)</td>
+        <td class="text-center">5 / 23 (21.7%)</td>
+        <td class="text-center font-bold">15 / 31 (48.4%)</td>
+        <td>Budi Utama unggul +10 poin dari garis lemparan bebas</td>
+      </tr>
+      <tr>
+        <td>Fastbreak Points (FBP)</td>
+        <td class="text-center font-bold">25 Poin</td>
+        <td class="text-center">20 Poin</td>
+        <td>Transisi balik kilat Stece unggul +5 poin</td>
+      </tr>
+      <tr>
+        <td>Biggest Lead (BL)</td>
+        <td class="text-center font-bold">21 Poin</td>
+        <td class="text-center">0 Poin</td>
+        <td>Stece memimpin nyaman sepanjang pertandingan</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 3: FOUR FACTORS -->
+  <h2>3. Analisis Four Factors Laga Final Putri (Dean Oliver)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Four Factors (Bobot)</th>
+        <th class="text-center">SMA Stella Duce 1 (STECE)</th>
+        <th class="text-center">SMA Budi Utama</th>
+        <th>Analisis Keunggulan Laga Final</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="font-bold">1. Shooting (eFG%) – 40%</td>
+        <td class="text-center">33.73%</td>
+        <td class="text-center font-bold text-blue">40.70%</td>
+        <td>Budi Utama unggul efisiensi tembakan berkat 3 tripoin Naysia (#4).</td>
+      </tr>
+      <tr>
+        <td class="font-bold">2. Turnovers (TOV%) – 25%</td>
+        <td class="text-center font-bold text-green">31.08%</td>
+        <td class="text-center text-red">50.59%</td>
+        <td><strong>STECE UNGGUL TELAK (+19.51% Margin)</strong>: Budi Utama TOV di 50.6% possession.</td>
+      </tr>
+      <tr>
+        <td class="font-bold">3. Rebounding (ORB%) – 20%</td>
+        <td class="text-center font-bold text-green">45.61%</td>
+        <td class="text-center">25.93%</td>
+        <td><strong>STECE UNGGUL TELAK (+19.68% Margin)</strong>: Merebut 26 offensive rebound.</td>
+      </tr>
+      <tr>
+        <td class="font-bold">4. Free Throw Rate – 15%</td>
+        <td class="text-center">27.71%</td>
+        <td class="text-center font-bold text-blue">72.09%</td>
+        <td>Budi Utama memancing 31 free throw attempts, namun tak cukup mengejar FGA.</td>
+      </tr>
+      <tr class="total-row">
+        <td>RATING KOMPOSIT FINAL</td>
+        <td class="text-center font-bold text-red">52.71 (Off: 43.98 | Def: 61.44)</td>
+        <td class="text-center font-bold text-blue">47.29 (Off: 38.56 | Def: 56.02)</td>
+        <td><strong>Net Margin Final: +5.42 untuk SMA Stella Duce 1</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- SECTION 4: TABEL LENGKAP PEMAIN KEDUA TIM -->
+  <h2>4. Tabel Statistik Lengkap Pemain Laga Final</h2>
+
+  <h3>A. 🥇 SMA Stella Duce 1 Yogyakarta (CHAMPIONS)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th class="text-center">No</th>
+        <th>Nama Pemain</th>
+        <th class="text-center">MIN</th>
+        <th class="text-center">PTS</th>
+        <th class="text-center">FGM/A</th>
+        <th class="text-center">2PM/A</th>
+        <th class="text-center">3PM/A</th>
+        <th class="text-center">FTM/A</th>
+        <th class="text-center">REB (O/D)</th>
+        <th class="text-center">AST</th>
+        <th class="text-center">TO</th>
+        <th class="text-center">STL</th>
+        <th class="text-center">BLK</th>
+        <th class="text-center">PF</th>
+        <th class="text-center">EFF</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="text-center font-bold">#8</td>
+        <td class="font-bold">Alicia Graceitha Putri</td>
+        <td class="text-center">35:57</td>
+        <td class="text-center font-bold text-red">14</td>
+        <td class="text-center">7/15</td>
+        <td class="text-center">7/14</td>
+        <td class="text-center">0/1</td>
+        <td class="text-center">0/5</td>
+        <td class="text-center">8 (3/5)</td>
+        <td class="text-center">1</td>
+        <td class="text-center">5</td>
+        <td class="text-center font-bold text-red">9</td>
+        <td class="text-center">0</td>
+        <td class="text-center">4</td>
+        <td class="text-center font-bold text-red">14.0</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">#13</td>
+        <td class="font-bold">Naima Syafira Hanif</td>
+        <td class="text-center">31:07</td>
+        <td class="text-center font-bold text-red">18</td>
+        <td class="text-center">8/20</td>
+        <td class="text-center">8/18</td>
+        <td class="text-center">0/2</td>
+        <td class="text-center">2/4</td>
+        <td class="text-center">8 (4/4)</td>
+        <td class="text-center">4</td>
+        <td class="text-center">11</td>
+        <td class="text-center">5</td>
+        <td class="text-center">0</td>
+        <td class="text-center">3</td>
+        <td class="text-center font-bold">10.0</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">#15</td>
+        <td>Nathanela Nirwasita</td>
+        <td class="text-center">27:37</td>
+        <td class="text-center font-bold">10</td>
+        <td class="text-center">4/16</td>
+        <td class="text-center">4/15</td>
+        <td class="text-center">0/1</td>
+        <td class="text-center">2/8</td>
+        <td class="text-center font-bold">11 (7/4)</td>
+        <td class="text-center">3</td>
+        <td class="text-center">6</td>
+        <td class="text-center">5</td>
+        <td class="text-center">0</td>
+        <td class="text-center">5</td>
+        <td class="text-center">5.0</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">#5</td>
+        <td>Shalomita Abila Yoel</td>
+        <td class="text-center">36:49</td>
+        <td class="text-center">8</td>
+        <td class="text-center">4/13</td>
+        <td class="text-center">4/10</td>
+        <td class="text-center">0/3</td>
+        <td class="text-center">0/4</td>
+        <td class="text-center">5 (3/2)</td>
+        <td class="text-center">2</td>
+        <td class="text-center">2</td>
+        <td class="text-center">2</td>
+        <td class="text-center">0</td>
+        <td class="text-center">3</td>
+        <td class="text-center">2.0</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">#9</td>
+        <td>Alicia Lie Putri Prabowo</td>
+        <td class="text-center">19:28</td>
+        <td class="text-center">7</td>
+        <td class="text-center">3/8</td>
+        <td class="text-center">3/8</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">1/2</td>
+        <td class="text-center">2 (0/2)</td>
+        <td class="text-center">1</td>
+        <td class="text-center">3</td>
+        <td class="text-center font-bold text-red">8</td>
+        <td class="text-center">1</td>
+        <td class="text-center">1</td>
+        <td class="text-center font-bold">10.0</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">#4</td>
+        <td>Maria Theresia Oktavie</td>
+        <td class="text-center">23:00</td>
+        <td class="text-center">2</td>
+        <td class="text-center">1/7</td>
+        <td class="text-center">1/6</td>
+        <td class="text-center">0/1</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">3 (1/2)</td>
+        <td class="text-center font-bold">5</td>
+        <td class="text-center">5</td>
+        <td class="text-center font-bold text-red">8</td>
+        <td class="text-center">0</td>
+        <td class="text-center">3</td>
+        <td class="text-center">7.0</td>
+      </tr>
+      <tr>
+        <td class="text-center">#14</td>
+        <td>Elisabeth Aurea Putri</td>
+        <td class="text-center">6:10</td>
+        <td class="text-center">2</td>
+        <td class="text-center">1/1</td>
+        <td class="text-center">1/1</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">2 (1/1)</td>
+        <td class="text-center">0</td>
+        <td class="text-center">2</td>
+        <td class="text-center">0</td>
+        <td class="text-center">0</td>
+        <td class="text-center">2</td>
+        <td class="text-center">2.0</td>
+      </tr>
+      <tr>
+        <td class="text-center">#10</td>
+        <td>Vincentia Saraswati</td>
+        <td class="text-center">15:37</td>
+        <td class="text-center">0</td>
+        <td class="text-center">0/3</td>
+        <td class="text-center">0/3</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center font-bold">7 (7/0)</td>
+        <td class="text-center">3</td>
+        <td class="text-center">2</td>
+        <td class="text-center">2</td>
+        <td class="text-center">0</td>
+        <td class="text-center">2</td>
+        <td class="text-center">7.0</td>
+      </tr>
+      <tr class="total-row">
+        <td class="text-center font-bold">TOTAL</td>
+        <td class="font-bold">SMA STELLA DUCE 1</td>
+        <td class="text-center font-bold">200:00</td>
+        <td class="text-center font-bold text-red">61</td>
+        <td class="text-center font-bold">28/83</td>
+        <td class="text-center font-bold">28/75</td>
+        <td class="text-center font-bold">0/8</td>
+        <td class="text-center font-bold">5/23</td>
+        <td class="text-center font-bold text-red">52 (26/20)</td>
+        <td class="text-center font-bold">19</td>
+        <td class="text-center font-bold">42</td>
+        <td class="text-center font-bold text-red">39</td>
+        <td class="text-center font-bold">1</td>
+        <td class="text-center font-bold">23</td>
+        <td class="text-center font-bold text-red">57.0</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>B. 🥈 SMA Budi Utama (RUNNER-UP)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th class="text-center">No</th>
+        <th>Nama Pemain</th>
+        <th class="text-center">MIN</th>
+        <th class="text-center">PTS</th>
+        <th class="text-center">FGM/A</th>
+        <th class="text-center">2PM/A</th>
+        <th class="text-center">3PM/A</th>
+        <th class="text-center">FTM/A</th>
+        <th class="text-center">REB (O/D)</th>
+        <th class="text-center">AST</th>
+        <th class="text-center">TO</th>
+        <th class="text-center">STL</th>
+        <th class="text-center">BLK</th>
+        <th class="text-center">PF</th>
+        <th class="text-center">EFF</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="text-center font-bold">#4</td>
+        <td class="font-bold">Naysia Agustina Santosa</td>
+        <td class="text-center">29:10</td>
+        <td class="text-center font-bold text-blue">19</td>
+        <td class="text-center">7/14</td>
+        <td class="text-center">4/8</td>
+        <td class="text-center font-bold text-blue">3/6</td>
+        <td class="text-center">2/5</td>
+        <td class="text-center">3 (1/2)</td>
+        <td class="text-center">3</td>
+        <td class="text-center">8</td>
+        <td class="text-center">3</td>
+        <td class="text-center font-bold text-blue">3</td>
+        <td class="text-center">2</td>
+        <td class="text-center font-bold text-blue">13.0</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">#6</td>
+        <td class="font-bold">Zahira Adiya Mecca</td>
+        <td class="text-center">28:18</td>
+        <td class="text-center font-bold text-blue">12</td>
+        <td class="text-center">3/7</td>
+        <td class="text-center">3/6</td>
+        <td class="text-center">0/1</td>
+        <td class="text-center font-bold">6/12</td>
+        <td class="text-center font-bold">8 (2/6)</td>
+        <td class="text-center">0</td>
+        <td class="text-center">8</td>
+        <td class="text-center">3</td>
+        <td class="text-center">0</td>
+        <td class="text-center">4</td>
+        <td class="text-center">5.0</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">#10</td>
+        <td>Nicolle Jacqueline Sukweiju</td>
+        <td class="text-center">30:13</td>
+        <td class="text-center">5</td>
+        <td class="text-center">1/4</td>
+        <td class="text-center">1/3</td>
+        <td class="text-center">0/1</td>
+        <td class="text-center">3/5</td>
+        <td class="text-center">5 (0/5)</td>
+        <td class="text-center">1</td>
+        <td class="text-center">5</td>
+        <td class="text-center">2</td>
+        <td class="text-center">0</td>
+        <td class="text-center">3</td>
+        <td class="text-center">3.0</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">#5</td>
+        <td>Hanani Sanjaya</td>
+        <td class="text-center">14:09</td>
+        <td class="text-center">4</td>
+        <td class="text-center">1/1</td>
+        <td class="text-center">1/1</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">2/4</td>
+        <td class="text-center">5 (0/5)</td>
+        <td class="text-center">2</td>
+        <td class="text-center">3</td>
+        <td class="text-center">4</td>
+        <td class="text-center">0</td>
+        <td class="text-center">3</td>
+        <td class="text-center font-bold">10.0</td>
+      </tr>
+      <tr>
+        <td class="text-center font-bold">#12</td>
+        <td>Difa Amelia Dianur</td>
+        <td class="text-center">24:28</td>
+        <td class="text-center">3</td>
+        <td class="text-center">1/9</td>
+        <td class="text-center">1/5</td>
+        <td class="text-center">0/4</td>
+        <td class="text-center">1/4</td>
+        <td class="text-center">6 (2/4)</td>
+        <td class="text-center font-bold">4</td>
+        <td class="text-center">6</td>
+        <td class="text-center font-bold text-blue">6</td>
+        <td class="text-center">0</td>
+        <td class="text-center">2</td>
+        <td class="text-center">2.0</td>
+      </tr>
+      <tr>
+        <td class="text-center">#11</td>
+        <td>Feodora Poetri Permana</td>
+        <td class="text-center">8:03</td>
+        <td class="text-center">3</td>
+        <td class="text-center">1/1</td>
+        <td class="text-center">1/1</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">1/1</td>
+        <td class="text-center">3 (1/2)</td>
+        <td class="text-center">1</td>
+        <td class="text-center">4</td>
+        <td class="text-center">1</td>
+        <td class="text-center">0</td>
+        <td class="text-center">0</td>
+        <td class="text-center">4.0</td>
+      </tr>
+      <tr>
+        <td class="text-center">#7</td>
+        <td>Gracielle Alayna Ong</td>
+        <td class="text-center">22:25</td>
+        <td class="text-center">2</td>
+        <td class="text-center">1/4</td>
+        <td class="text-center">1/4</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">1 (0/1)</td>
+        <td class="text-center">1</td>
+        <td class="text-center">8</td>
+        <td class="text-center">2</td>
+        <td class="text-center">0</td>
+        <td class="text-center">1</td>
+        <td class="text-center">-5.0</td>
+      </tr>
+      <tr>
+        <td class="text-center">#8</td>
+        <td>Queenara Alfarzana Pratiwi</td>
+        <td class="text-center">17:43</td>
+        <td class="text-center">2</td>
+        <td class="text-center">1/1</td>
+        <td class="text-center">1/1</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">0/0</td>
+        <td class="text-center">3 (0/3)</td>
+        <td class="text-center">2</td>
+        <td class="text-center">8</td>
+        <td class="text-center">2</td>
+        <td class="text-center">0</td>
+        <td class="text-center">5</td>
+        <td class="text-center">1.0</td>
+      </tr>
+      <tr class="total-row">
+        <td class="text-center font-bold">TOTAL</td>
+        <td class="font-bold">SMA BUDI UTAMA (PUTRI)</td>
+        <td class="text-center font-bold">200:00</td>
+        <td class="text-center font-bold text-blue">50</td>
+        <td class="text-center font-bold">16/43</td>
+        <td class="text-center font-bold">13/31</td>
+        <td class="text-center font-bold">3/12</td>
+        <td class="text-center font-bold">15/31</td>
+        <td class="text-center font-bold">42 (7/31)</td>
+        <td class="text-center font-bold">14</td>
+        <td class="text-center font-bold text-red">58</td>
+        <td class="text-center font-bold">26</td>
+        <td class="text-center font-bold text-blue">6</td>
+        <td class="text-center font-bold">20</td>
+        <td class="text-center font-bold">37.0</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 5: SOROTAN PEMAIN KUNCI -->
+  <h2>5. Sorotan Profil Pemain Kunci Laga Final</h2>
+  <div class="player-card-grid">
+    <div class="player-card">
+      <div class="player-name">#8 Alicia Graceitha (Stece)</div>
+      <div class="player-role">Final MVP & Defensive Monster</div>
+      <div class="player-stat-line">• <strong>14 PTS</strong> | 8 REB | <strong>9 STEALS!</strong></div>
+      <div class="player-stat-line">• 7/14 2PT (50.0%)</div>
+      <div class="player-stat-line">• Efisiensi Tertinggi Tim: <strong>14.0</strong></div>
+    </div>
+    <div class="player-card">
+      <div class="player-name">#13 Naima Syafira (Stece)</div>
+      <div class="player-role">Top Scorer Stece</div>
+      <div class="player-stat-line">• <strong>18 PTS</strong> | 8 REB | 5 STL | 4 AST</div>
+      <div class="player-stat-line">• 8/18 2PT di paint area</div>
+      <div class="player-stat-line">• Efisiensi: <strong>10.0</strong></div>
+    </div>
+    <div class="player-card">
+      <div class="player-name">#4 Naysia Agustina (Budi Utama)</div>
+      <div class="player-role">Top Scorer Laga Final</div>
+      <div class="player-stat-line">• <strong>19 PTS</strong> | 3 AST | 3 STL | <strong>3 BLK</strong></div>
+      <div class="player-stat-line">• 3/6 3PT (50.0%) | 4/8 2PT</div>
+      <div class="player-stat-line">• Efisiensi Tertinggi Laga: <strong>13.0</strong></div>
+    </div>
+    <div class="player-card">
+      <div class="player-name">#6 Zahira Mecca (Budi Utama)</div>
+      <div class="player-role">Inside Anchor & Rebound</div>
+      <div class="player-stat-line">• <strong>12 PTS</strong> | 8 REB | 3 STL</div>
+      <div class="player-stat-line">• 6/12 Free Throw</div>
+      <div class="player-stat-line">• Pilar bawah ring Budi Utama</div>
+    </div>
+  </div>
+
+  <!-- SECTION 6: EVALUASI TAKTIS -->
+  <h2>6. Kesimpulan & Faktor Penentu Kemenangan Taktis</h2>
+  <div class="grid-2col">
+    <div class="box-info box-green">
+      <div class="box-title">🏆 Mengapa Stella Duce 1 Juara?</div>
+      <ul>
+        <li><strong>Volume Percobaan Tembakan (+40 FGA):</strong> Stece melepaskan 83 tembakan vs hanya 43 milik Budi Utama berkat 39 steal dan 26 offensive rebound.</li>
+        <li><strong>Pesta Poin di Paint Area (54 vs 26 Pts):</strong> Tanpa mencetak 3-poin (0/8), Stece mencetak 54 poin di dalam paint lewat Naima dan Alicia.</li>
+        <li><strong>Trap Mematikan:</strong> Menghasilkan 58 turnover lawan dan membatasi transisi Budi Utama.</li>
+      </ul>
+    </div>
+    <div class="box-info box-amber">
+      <div class="box-title">🥈 Catatan Perjuangan SMA Budi Utama</div>
+      <ul>
+        <li><strong>Akurasi Unggul:</strong> Menembak 37.2% FG dan 3 tripoin dari Naysia (#4).</li>
+        <li><strong>Turnover Terlalu Tinggi (50.6% TOV):</strong> Kehilangan bola pada separuh penguasaan bola karena kesulitan menghadapi full-court press Stece.</li>
+        <li><strong>Kekalahan di Defensive Glass:</strong> Memberikan 26 offensive rebound kepada lawan.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>StatsArena Analytics Platform • Honda DBL D.I. Jogjakarta Series 2026</span>
+    <span>Dokumen Resmi Analisis Hasil Laga Final Putri</span>
+  </div>
+
+</body>
+</html>
