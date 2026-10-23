@@ -67,7 +67,7 @@ export function parseSummaryHtml(html: string, sourceUrl: string): ParseReport<S
   const url = validateSourceUrl(sourceUrl);
   const gameId = sourceEntityId(url.href, "match");
   if (!gameId) throw new ParserError("ID pertandingan tidak ditemukan dari URL", sourceUrl, "/match/{id}/summary");
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   const teams = pageTeamLinks($);
   if (teams.length < 2) {
     throw new ParserError("Dua tautan tim tidak ditemukan pada summary", sourceUrl, "a[href*='/team/']");

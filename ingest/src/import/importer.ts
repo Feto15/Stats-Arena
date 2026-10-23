@@ -1,4 +1,6 @@
-import { and, eq, sql } from "drizzle-orm";
+import { sourceName, sameSourceNamespace, competitionReference } from "@statsarena/db/source";
+import { buildDetailQuality } from "@statsarena/db/data-quality";
+import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import type { StatsArenaDatabase } from "@statsarena/db";
 import {
   competitionGroups,
@@ -32,12 +34,14 @@ import type {
   TeamRecord,
   ValidationIssue
 } from "../domain/types.js";
-import { PARSER_VERSION, SOURCE_NAME } from "../domain/types.js";
+import { PARSER_VERSION } from "../domain/types.js";
 import { matchDataStatus } from "../domain/match-status.js";
 import { boxScoreCompletenessIssues } from "../domain/validation.js";
 import { validateShotsAgainstBoxScore } from "../domain/shot-validation.js";
 import { issue } from "../parsers/common.js";
 import { fixtureHash } from "../domain/incremental.js";
+import { parsedDataHash } from "../domain/content-hash.js";
+import { sourceEntityId, validateSourceUrl } from "../domain/source-url.js";
 
 export interface ImportSummary {
   importRunId: string;
@@ -54,6 +58,7 @@ export type ImportTransaction = Parameters<Parameters<StatsArenaDatabase["transa
 export type ImportWriteGuard = (transaction?: ImportTransaction) => Promise<void>;
 
 function statsValues(stats: BoxScoreStats): {
+  statDerivations: NonNullable<BoxScoreStats["statDerivations"]>;
   minutes: number | null;
   fieldGoalsMade: number | null;
   fieldGoalsAttempted: number | null;
@@ -81,6 +86,7 @@ function statsValues(stats: BoxScoreStats): {
     minutes: stats.minutes,
     fieldGoalsMade: stats.fieldGoalsMade,
     fieldGoalsAttempted: stats.fieldGoalsAttempted,
+    statDerivations: stats.statDerivations ?? {},
     twoPointsMade: stats.twoPointsMade,
     twoPointAttempts: stats.twoPointAttempts,
     threePointsMade: stats.threePointsMade,
@@ -108,12 +114,49 @@ export async function importCompetition(
   data: ParsedCompetitionData,
   fetches: FetchMetadata[],
   mode: "discover" | "sync" | "snapshot" = "sync",
-  writeGuard?: ImportWriteGuard
+  writeGuard?: ImportWriteGuard,
+  options: { forceFullAudit?: boolean } = {}
 ): Promise<ImportSummary> {
+  const source = sourceName(data.competition.sourceUrl);
+  if (competitionReference(data.competition.sourceUrl).id !== data.competition.sourceId) throw new Error("ID kompetisi berbeda dari URL sumber.");
+  // JSON audit input receives the same namespace guard as parsed HTML.
+  function assertNamespace(value: unknown): void {
+    if (Array.isArray(value)) { for (const item of value) assertNamespace(item); return; }
+    if (typeof value !== "object" || value === null) return;
+    for (const [key, item] of Object.entries(value)) {
+      if ((key === "sourceUrl" || key === "requestUrl" || key === "finalUrl") && typeof item === "string" &&
+          !sameSourceNamespace(item, data.competition.sourceUrl)) throw new Error("Payload memuat URL dari namespace sumber lain.");
+      if (typeof item === "object" && item !== null) assertNamespace(item);
+    }
+  }
+  assertNamespace(data); assertNamespace(fetches);
   const startedAt = Date.now();
+  const retrievalCounts = {
+    auditPages: fetches.length,
+    auditNetworkRequests: fetches.reduce((sum, entry) => sum + entry.attempts.filter((attempt) => attempt.attempt > 0).length, 0),
+    auditCacheHits: fetches.filter((entry) => entry.retrievalMode === "cache").length,
+    auditSnapshotReads: fetches.filter((entry) => entry.retrievalMode === "snapshot" || (!entry.retrievalMode && entry.fromSnapshot)).length,
+    auditRevalidatedPages: fetches.filter((entry) => entry.retrievalMode === "revalidated").length
+  };
+  const inputHash = parsedDataHash({ fingerprintVersion: 1, parserVersion: PARSER_VERSION, data,
+    pages: fetches.map((entry) => ({ url: entry.requestUrl, finalUrl: entry.finalUrl, resource: entry.resource,
+      hash: entry.sha256, fetchStatus: entry.fetchStatus, parseStatus: entry.parseStatus }))
+      .sort((a, b) => parsedDataHash(a).localeCompare(parsedDataHash(b))) });
+  const [knownCompetition] = await db.select({ id: competitions.id }).from(competitions)
+    .where(and(eq(competitions.source, source), eq(competitions.sourceCompetitionId, data.competition.sourceId)));
+  // Compare only the immediately preceding run. Reusing an older matching hash
+  // after a correction/partial import could incorrectly skip restoring current data.
+  const [previousRun] = knownCompetition ? await db.select().from(importRuns)
+    .where(eq(importRuns.competitionId, knownCompetition.id)).orderBy(desc(importRuns.startedAt)).limit(1) : [];
+  const latestFetch = [...fetches].sort((a, b) => Date.parse(b.requestedAt) - Date.parse(a.requestedAt))
+    .find((entry) => entry.sourceFetchedAt || entry.fetchStatus === "succeeded");
   const [run] = await db.transaction(async (tx) => {
     await writeGuard?.(tx);
-    return tx.insert(importRuns).values({ mode, parserVersion: PARSER_VERSION, status: "running" }).returning();
+    return tx.insert(importRuns).values({ mode, parserVersion: PARSER_VERSION, status: "running", inputHash,
+      competitionId: knownCompetition?.id ?? null,
+      latestRequestedAt: latestFetch ? new Date(latestFetch.requestedAt) : null,
+      latestSourceFetchedAt: latestFetch ? new Date(latestFetch.sourceFetchedAt ?? latestFetch.fetchedAt) : null
+    }).returning();
   });
   if (!run) throw new Error("Gagal membuat import run.");
   const runIssues: ValidationIssue[] = [...data.issues];
@@ -137,6 +180,32 @@ export async function importCompetition(
   const matchStatuses: Record<string, number> = {};
 
   try {
+    const clean = issues.every((entry) => entry.severity === "info") &&
+      fetches.every((entry) => entry.fetchStatus === "succeeded" && entry.parseStatus === "parsed" &&
+        entry.sha256 !== null && /^[a-f0-9]{64}$/.test(entry.sha256) && !entry.error && entry.attempts.every((attempt) => !attempt.error));
+    if (!options.forceFullAudit && knownCompetition && previousRun?.status === "succeeded" &&
+        previousRun.parserVersion === PARSER_VERSION && previousRun.inputHash === inputHash && clean) {
+      const counts = { ...previousRun.recordCounts, ...retrievalCounts, newGames: 0, updatedGames: 0, unchangedGames: data.matches.length,
+        playerGameStats: 0, teamGameStats: 0, playByPlayEvents: 0, shots: 0, gameOfficialMetrics: 0,
+        competitionOfficialMetrics: 0, metadataWrites: 0, observationWrites: 0, standingsWritten: 0,
+        sourceFetchesWritten: 0, reusedSourceFetches: fetches.length, auditSummaryRuns: 1,
+        unchangedBoxScores: data.matches.filter((match) => match.boxScore != null).length,
+        unchangedPlayByPlayGames: data.matches.filter((match) => match.playByPlay?.status === "parsed").length,
+        unchangedShotCharts: data.matches.filter((match) => match.shotChart?.status === "parsed").length };
+      await db.transaction(async (tx) => {
+        await writeGuard?.(tx);
+        counts["observationWrites"] = await refreshObservationTimes(tx, knownCompetition.id, data);
+        await tx.update(importRuns).set({ status: "succeeded", auditKind: "summary",
+          baselineImportRunId: previousRun.baselineImportRunId ?? previousRun.id,
+          recordCounts: counts, finishedAt: new Date(), errorSummary: previousRun.errorSummary
+        }).where(eq(importRuns.id, run.id));
+      });
+      for (const match of data.matches) {
+        const state = matchDataStatus(match); matchStatuses[state] = (matchStatuses[state] ?? 0) + 1;
+      }
+      return { importRunId: run.id, competitionId: knownCompetition.id, counts, failedGames, issues,
+        status: "succeeded", matchStatuses, durationMs: Date.now() - startedAt };
+    }
     const core = await db.transaction(async (tx) => {
       await writeGuard?.(tx);
       const comp = await upsertCompetition(tx, data.competition);
@@ -145,9 +214,30 @@ export async function importCompetition(
       const playerIdBySource = new Map<string, string>();
 
       const identities = collectIdentities(data);
-      for (const batch of chunks(identities.teams)) {
+      let metadataWrites = 0;
+      const existingTeams = identities.teams.length ? await tx.select().from(teams).where(and(
+        eq(teams.source, source), inArray(teams.sourceTeamId, identities.teams.map((team) => team.sourceId)))) : [];
+      const existingPlayers = identities.players.length ? await tx.select().from(players).where(and(
+        eq(players.source, source), inArray(players.sourcePlayerId, identities.players.map((player) => player.sourceId)))) : [];
+      const teamsBySource = new Map(existingTeams.map((team) => [team.sourceTeamId, team]));
+      const playersBySource = new Map(existingPlayers.map((player) => [player.sourcePlayerId, player]));
+      for (const team of existingTeams) teamIdBySource.set(team.sourceTeamId, team.id);
+      for (const player of existingPlayers) playerIdBySource.set(player.sourcePlayerId, player.id);
+      const changedTeams = identities.teams.map((team) => ({ ...team,
+        sourceUrl: stableEntitySourceUrl(teamsBySource.get(team.sourceId)?.sourceUrl, team.sourceUrl, "team", team.sourceId)
+      })).filter((team) => {
+        const old = teamsBySource.get(team.sourceId);
+        return !old || old.name !== team.name || old.sourceUrl !== team.sourceUrl || old.logoUrl !== (team.logoUrl ?? old.logoUrl);
+      });
+      const changedPlayers = identities.players.map((player) => ({ ...player,
+        sourceUrl: stableEntitySourceUrl(playersBySource.get(player.sourceId)?.sourceUrl, player.sourceUrl, "person", player.sourceId)
+      })).filter((player) => {
+        const old = playersBySource.get(player.sourceId);
+        return !old || old.name !== player.name || old.sourceUrl !== player.sourceUrl;
+      });
+      for (const batch of chunks(changedTeams)) {
         const saved = await tx.insert(teams).values(batch.map((team) => ({
-          source: SOURCE_NAME, sourceTeamId: team.sourceId, sourceUrl: team.sourceUrl,
+          source: source, sourceTeamId: team.sourceId, sourceUrl: team.sourceUrl,
           name: team.name, logoUrl: team.logoUrl
         }))).onConflictDoUpdate({
           target: [teams.source, teams.sourceTeamId],
@@ -155,15 +245,17 @@ export async function importCompetition(
             logoUrl: sql`coalesce(excluded.logo_url, ${teams.logoUrl})`, updatedAt: new Date() }
         }).returning({ id: teams.id, sourceId: teams.sourceTeamId });
         for (const team of saved) teamIdBySource.set(team.sourceId, team.id);
+        metadataWrites += saved.length;
       }
-      for (const batch of chunks(identities.players)) {
+      for (const batch of chunks(changedPlayers)) {
         const saved = await tx.insert(players).values(batch.map((player) => ({
-          source: SOURCE_NAME, sourcePlayerId: player.sourceId, sourceUrl: player.sourceUrl, name: player.name
+          source: source, sourcePlayerId: player.sourceId, sourceUrl: player.sourceUrl, name: player.name
         }))).onConflictDoUpdate({
           target: [players.source, players.sourcePlayerId],
           set: { sourceUrl: sql`excluded.source_url`, name: sql`excluded.name`, updatedAt: new Date() }
         }).returning({ id: players.id, sourceId: players.sourcePlayerId });
         for (const player of saved) playerIdBySource.set(player.sourceId, player.id);
+        metadataWrites += saved.length;
       }
       for (const batch of chunks(identities.teams)) {
         await tx.insert(competitionTeams).values(batch.map((team) => ({
@@ -171,7 +263,8 @@ export async function importCompetition(
           sourceUrl: team.sourceUrl, lastSeenAt: new Date()
         }))).onConflictDoUpdate({
           target: [competitionTeams.competitionId, competitionTeams.teamId],
-          set: { sourceUrl: sql`excluded.source_url`, lastSeenAt: new Date() }
+          set: { sourceUrl: sql`excluded.source_url`, lastSeenAt: new Date() },
+          setWhere: sql`${competitionTeams.sourceUrl} is distinct from excluded.source_url`
         });
       }
       for (const batch of chunks(identities.players)) {
@@ -180,11 +273,20 @@ export async function importCompetition(
           sourceUrl: player.sourceUrl, lastSeenAt: new Date()
         }))).onConflictDoUpdate({
           target: [competitionPlayers.competitionId, competitionPlayers.playerId],
-          set: { sourceUrl: sql`excluded.source_url`, lastSeenAt: new Date() }
+          set: { sourceUrl: sql`excluded.source_url`, lastSeenAt: new Date() },
+          setWhere: sql`${competitionPlayers.sourceUrl} is distinct from excluded.source_url`
         });
       }
       const groupIdBySource = new Map<string, string>();
-      for (const batch of chunks(dedupeGroups(data.groups.map((entry) => entry.group)))) {
+      const existingGroups = await tx.select().from(competitionGroups).where(eq(competitionGroups.competitionId, comp.id));
+      const groupsBySource = new Map(existingGroups.map((group) => [group.sourceGroupId, group]));
+      const incomingGroupIds = new Set(data.groups.map((entry) => entry.group.sourceId));
+      for (const group of existingGroups) if (incomingGroupIds.has(group.sourceGroupId)) groupIdBySource.set(group.sourceGroupId, group.id);
+      const changedGroups = dedupeGroups(data.groups.map((entry) => entry.group)).filter((group) => {
+        const old = groupsBySource.get(group.sourceId);
+        return !old || old.label !== group.label || old.sourceUrl !== group.sourceUrl || old.poolNumber !== (group.poolNumber ?? old.poolNumber);
+      });
+      for (const batch of chunks(changedGroups)) {
         const saved = await tx.insert(competitionGroups).values(batch.map((group) => ({
           competitionId: comp.id, sourceGroupId: group.sourceId, sourceUrl: group.sourceUrl,
           label: group.label, poolNumber: group.poolNumber
@@ -194,8 +296,10 @@ export async function importCompetition(
             poolNumber: sql`coalesce(excluded.pool_number, ${competitionGroups.poolNumber})`, updatedAt: new Date() }
         }).returning({ id: competitionGroups.id, sourceId: competitionGroups.sourceGroupId });
         for (const group of saved) groupIdBySource.set(group.sourceId, group.id);
+        metadataWrites += saved.length;
       }
-      return { competitionId: comp.id, teamIdBySource, playerIdBySource, groupIdBySource };
+      const observationWrites = await refreshObservationTimes(tx, comp.id, data);
+      return { competitionId: comp.id, teamIdBySource, playerIdBySource, groupIdBySource, metadataWrites, observationWrites };
     });
     competitionId = core.competitionId;
     const teamSourceIdById = new Map([...core.teamIdBySource].map(([sourceId, id]) => [id, sourceId]));
@@ -231,29 +335,26 @@ export async function importCompetition(
       for (const entry of saved) fetchIdByUrl.set(entry.requestUrl, entry.id);
     }
 
+    let standingsWritten = 0;
     for (const groupData of data.groups) {
       const groupId = core.groupIdBySource.get(groupData.group.sourceId);
       if (!groupId) throw new Error(`Grup ${groupData.group.sourceId} belum disimpan.`);
-      await db.transaction(async (tx) => {
+      const written = await db.transaction(async (tx) => {
         await writeGuard?.(tx);
+        const existing = await tx.select().from(groupStandings).where(eq(groupStandings.groupId, groupId));
+        const rows = groupData.rows.map((standing) => ({ groupId,
+          teamId: requiredId(core.teamIdBySource, standing.teamSourceId),
+          position: standing.position, gamesPlayed: standing.gamesPlayed, wins: standing.wins,
+          losses: standing.losses, draws: standing.draws, pointsFor: standing.pointsFor,
+          pointsAgainst: standing.pointsAgainst, pointDifference: standing.pointDifference,
+          standingPoints: standing.standingPoints, sourceFetchId: fetchIdByUrl.get(groupData.group.sourceUrl) ?? null }));
+        if (sameRowsByKeys(rows, existing, ["teamId"], [])) return 0;
         await tx.delete(groupStandings).where(eq(groupStandings.groupId, groupId));
-        for (const batch of chunks(groupData.rows)) {
-          await tx.insert(groupStandings).values(batch.map((standing) => ({
-            groupId,
-            teamId: requiredId(core.teamIdBySource, standing.teamSourceId),
-            position: standing.position,
-            gamesPlayed: standing.gamesPlayed,
-            wins: standing.wins,
-            losses: standing.losses,
-            draws: standing.draws,
-            pointsFor: standing.pointsFor,
-            pointsAgainst: standing.pointsAgainst,
-            pointDifference: standing.pointDifference,
-            standingPoints: standing.standingPoints,
-            sourceFetchId: fetchIdByUrl.get(groupData.group.sourceUrl) ?? null
-          })));
-        }
+        for (const batch of chunks(rows)) await tx.insert(groupStandings).values(batch);
+        return rows.length;
       });
+      // Count committed row changes, not the logical number of standings observed.
+      standingsWritten += written;
     }
 
     if (data.teamOfficialMetrics?.status === "parsed" && data.teamOfficialMetrics.records.length > 0) {
@@ -324,9 +425,9 @@ export async function importCompetition(
           let shotsUnchanged = 0;
           let preservedDetails = 0;
           // An advisory lock also covers games that have not been inserted yet.
-          await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${SOURCE_NAME}:${match.fixture.sourceId}`}, 0))`);
+          await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${source}:${match.fixture.sourceId}`}, 0))`);
           const [existingGame] = await tx.select().from(games)
-            .where(and(eq(games.source, SOURCE_NAME), eq(games.sourceGameId, match.fixture.sourceId), eq(games.competitionId, competitionId)))
+            .where(and(eq(games.source, source), eq(games.sourceGameId, match.fixture.sourceId), eq(games.competitionId, competitionId)))
             .for("update");
           const existingPlayers = match.boxScore && existingGame
             ? await tx.select().from(playerGameStats).where(eq(playerGameStats.gameId, existingGame.id)) : [];
@@ -371,7 +472,7 @@ export async function importCompetition(
           const boxscoreFetchId = fetchIdByUrl.get(boxScore?.sourceUrl ?? "") ?? null;
           const [savedGame] = await tx.insert(games).values({
             competitionId,
-            source: SOURCE_NAME,
+            source: source,
             sourceGameId: match.fixture.sourceId,
             sourceUrl: match.fixture.sourceUrl,
             homeTeamId,
@@ -521,12 +622,18 @@ export async function importCompetition(
             if (fetchId) await tx.update(sourceFetches).set({ parseStatus: "partial" }).where(eq(sourceFetches.id, fetchId));
           }
           const matchIssues = [...match.issues, ...integrityIssues, ...detailIssues];
+          const datasetQuality = buildDetailQuality(match.availability ?? {
+            summary: match.summary ? "available" : "unavailable", boxScore: boxScore ? "available" : "unavailable",
+            playByPlay: match.playByPlay?.status ?? "unavailable", shotChart: match.shotChart?.status ?? "unavailable",
+            analysis: match.officialMetrics?.status ?? "unavailable"
+          }, matchIssues, new Date(), existingGame?.detailQuality);
           const detailValid = matchIssues.every((entry) => entry.severity !== "error") &&
             (savedGame.status === "scheduled" || (boxScore !== null && matchDataStatus(match) === "ready"));
           // Persist only after all detail guards pass, inside the game transaction.
           // A failed/partial refresh must remain eligible for the next incremental cycle.
           await tx.update(games).set({
             fixtureHash: fixtureHash(match.fixture),
+            detailQuality: datasetQuality,
             detailSyncStatus: detailValid ? "parsed" : "partial",
             detailParserVersion: PARSER_VERSION,
             detailSyncedAt: detailValid && boxScore !== null ? new Date() : savedGame.detailSyncedAt
@@ -534,7 +641,7 @@ export async function importCompetition(
           for (const batch of chunks(matchIssues)) {
             await tx.insert(validationIssues).values(batch.map((entry) => issueValues(entry, run.id, competitionId, savedGame.id)));
           }
-          return { playerStats: !unchanged ? boxScore?.players.length ?? 0 : 0,
+          return { datasetQuality, playerStats: !unchanged ? boxScore?.players.length ?? 0 : 0,
             teamStats: !unchanged ? boxScore?.teams.length ?? 0 : 0, unchanged,
             isNewGame: !existingGame,
             gameChanged: coreGameChanged || (boxScore !== null && !unchanged) || playByPlayRowsWritten > 0 || shotRowsWritten > 0 || gameMetricRowsWritten > 0,
@@ -544,6 +651,7 @@ export async function importCompetition(
             preserved: boxScore === null,
             dataStatus: integrityIssues.length > 0 ? "boxscore_partial" : matchDataStatus(match) };
         });
+        match.datasetQuality = written.datasetQuality;
         issues.push(...written.additionalIssues);
         writtenPlayerStats += written.playerStats;
         writtenTeamStats += written.teamStats;
@@ -565,8 +673,8 @@ export async function importCompetition(
         // including failures where the incoming fixture itself was unchanged.
         await db.transaction(async (tx) => {
           await writeGuard?.(tx);
-          await tx.update(games).set({ detailSyncStatus: "failed" }).where(and(
-            eq(games.competitionId, competitionId), eq(games.source, SOURCE_NAME), eq(games.sourceGameId, match.fixture.sourceId)
+          await tx.update(games).set({ detailSyncStatus: "failed", detailQuality: null }).where(and(
+            eq(games.competitionId, competitionId), eq(games.source, source), eq(games.sourceGameId, match.fixture.sourceId)
           ));
         }).catch(() => undefined);
         matchStatuses["import_failed"] = (matchStatuses["import_failed"] ?? 0) + 1;
@@ -589,11 +697,18 @@ export async function importCompetition(
       await db.insert(validationIssues).values(batch.map((entry) => issueValues(entry, run.id, competitionId, null)));
     }
     const counts = {
+      ...retrievalCounts,
       competitions: 1,
       teams: core.teamIdBySource.size,
       players: core.playerIdBySource.size,
       groups: core.groupIdBySource.size,
       standings: data.groups.reduce((sum, group) => sum + group.rows.length, 0),
+      standingsWritten,
+      metadataWrites: core.metadataWrites,
+      observationWrites: core.observationWrites,
+      sourceFetchesWritten: fetches.length,
+      reusedSourceFetches: 0,
+      auditSummaryRuns: 0,
       games: data.matches.length - failedGames.length,
       newGames,
       updatedGames,
@@ -639,9 +754,45 @@ export async function importCompetition(
   }
 }
 
+/** Competition-specific URLs belong to memberships. Keep an existing valid
+ * global entity URL when only the competition segment differs. */
+function stableEntitySourceUrl(previous: string | undefined, incoming: string, kind: "team" | "person", sourceId: string): string {
+  if (!previous) return incoming;
+  try {
+    const oldUrl = validateSourceUrl(previous); const newUrl = validateSourceUrl(incoming);
+    if (sourceEntityId(oldUrl.href, kind) !== sourceId || sourceEntityId(newUrl.href, kind) !== sourceId) return incoming;
+    oldUrl.pathname = oldUrl.pathname.replace(/\/competition\/\d+(?=\/)/, "");
+    newUrl.pathname = newUrl.pathname.replace(/\/competition\/\d+(?=\/)/, "");
+    return oldUrl.href === newUrl.href ? previous : incoming;
+  } catch { return incoming; }
+}
+
+/** Keep observation dates within 24h without rewriting every membership each cycle. */
+async function refreshObservationTimes(tx: ImportTransaction, competitionId: string, data: ParsedCompetitionData): Promise<number> {
+  const source = sourceName(data.competition.sourceUrl);
+  const observedAt = new Date(); const cutoff = new Date(observedAt.getTime() - 86400000);
+  const competitionRows = await tx.update(competitions).set({ lastSeenAt: observedAt })
+    .where(and(eq(competitions.id, competitionId), lte(competitions.lastSeenAt, cutoff))).returning({ id: competitions.id });
+  const identities = collectIdentities(data);
+  const teamRows = identities.teams.length ? await tx.update(competitionTeams).set({ lastSeenAt: observedAt })
+    .where(and(eq(competitionTeams.competitionId, competitionId), lte(competitionTeams.lastSeenAt, cutoff),
+      inArray(competitionTeams.teamId, tx.select({ id: teams.id }).from(teams).where(and(eq(teams.source, source), inArray(teams.sourceTeamId, identities.teams.map(team => team.sourceId)))))))
+    .returning({ id: competitionTeams.id }) : [];
+  const playerRows = identities.players.length ? await tx.update(competitionPlayers).set({ lastSeenAt: observedAt })
+    .where(and(eq(competitionPlayers.competitionId, competitionId), lte(competitionPlayers.lastSeenAt, cutoff),
+      inArray(competitionPlayers.playerId, tx.select({ id: players.id }).from(players).where(and(eq(players.source, source), inArray(players.sourcePlayerId, identities.players.map(player => player.sourceId)))))))
+    .returning({ id: competitionPlayers.id }) : [];
+  return competitionRows.length + teamRows.length + playerRows.length;
+}
+
 async function upsertCompetition(tx: Parameters<Parameters<StatsArenaDatabase["transaction"]>[0]>[0], record: CompetitionRecord) {
+  const source = sourceName(record.sourceUrl);
+  const [existing] = await tx.select().from(competitions).where(and(
+    eq(competitions.source, source), eq(competitions.sourceCompetitionId, record.sourceId)));
+  if (existing && existing.sourceUrl === record.sourceUrl && existing.name === record.name &&
+      existing.season === (record.season ?? existing.season) && existing.year === (record.year ?? existing.year)) return existing;
   const [saved] = await tx.insert(competitions).values({
-    source: SOURCE_NAME,
+    source: source,
     sourceCompetitionId: record.sourceId,
     sourceUrl: record.sourceUrl,
     name: record.name,
@@ -867,6 +1018,6 @@ function sameRows<T extends { teamId: string }>(incoming: T[], existing: T[], ke
     const saved = savedByKey.get(row[key]);
     if (!saved) return false;
     // Only compare fields that this importer owns; IDs, timestamps and additional official metrics remain untouched.
-    return (Object.keys(row) as Array<keyof T>).every((field) => row[field] === saved[field]);
+    return (Object.keys(row) as Array<keyof T>).every((field) => typeof row[field] === "object" && row[field] !== null ? parsedDataHash(row[field]) === parsedDataHash(saved[field]) : row[field] === saved[field]);
   });
 }

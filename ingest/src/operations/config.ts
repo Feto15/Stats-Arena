@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
-import { competitionUrl, sourceEntityId } from "../domain/source-url.js";
+import { competitionUrl, competitionReference } from "../domain/source-url.js";
 
 const competitionEntrySchema = z.object({
   sourceUrl: z.string().min(1),
@@ -24,7 +24,7 @@ export function parseCompetitionConfig(input: unknown): ActiveCompetition[] {
   const seen = new Set<string>();
   return parsed.competitions.filter((entry) => entry.active).map((entry) => {
     const url = competitionUrl(entry.sourceUrl);
-    const sourceCompetitionId = sourceEntityId(url.href, "competition");
+    const sourceCompetitionId = competitionReference(url.href).key;
     if (!sourceCompetitionId) throw new Error(`ID kompetisi tidak ditemukan pada URL konfigurasi: ${url.href}`);
     if (seen.has(sourceCompetitionId)) throw new Error(`ID kompetisi ${sourceCompetitionId} muncul lebih dari sekali di konfigurasi.`);
     seen.add(sourceCompetitionId);

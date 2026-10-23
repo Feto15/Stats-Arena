@@ -1,0 +1,34 @@
+name: StatsArena checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --global pnpm@12.9.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Build runner image
+        run: docker build --file deploy/runner/Dockerfile --tag statsarena-runner:ci .
+      - name: Check runner entrypoint
+        run: docker run --rm --entrypoint node statsarena-runner:ci --import tsx src/cli.ts --help

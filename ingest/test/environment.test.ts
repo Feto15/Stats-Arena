@@ -14,6 +14,7 @@ test("project environment resolves the root file from both package directories a
     await mkdir(join(root, "ingest"));
     const modulePath = join(moduleDir, "environment.ts");
     await writeFile(modulePath, await readFile(new URL("../../packages/db/src/environment.ts", import.meta.url)));
+    await writeFile(join(root, "packages/db/package.json"), '{"type":"module"}\n');
     await writeFile(join(root, ".env"), "STATSARENA_TEST_ROOT=root\nSTATSARENA_TEST_EXISTING=file\n");
     await writeFile(join(root, "ingest/.env"), "STATSARENA_TEST_ROOT=wrong\n");
     const script = `import { loadProjectEnv } from ${JSON.stringify(pathToFileURL(modulePath).href)};

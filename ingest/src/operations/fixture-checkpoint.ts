@@ -7,7 +7,7 @@ import { fixturePageUrl } from "../parsers/fixtures.js";
 const MAX_CHECKPOINT_BYTES = 4 * 1024 * 1024;
 const checkpointSchema = z.object({
   version: z.literal(1),
-  sourceCompetitionId: z.string().regex(/^\d+$/),
+  sourceCompetitionId: z.string().regex(/^(?:IBL:)?\d{1,32}$/),
   pendingUrls: z.array(z.string().max(8192)).max(10_000)
 }).strict();
 
@@ -16,7 +16,7 @@ export class FixturePageCheckpoint {
   private readonly path: string;
 
   constructor(private readonly directory: string, private readonly sourceCompetitionId: string) {
-    if (!/^\d+$/.test(sourceCompetitionId)) throw new Error("ID kompetisi checkpoint tidak valid.");
+    if (!/^(?:IBL:)?\d{1,32}$/.test(sourceCompetitionId)) throw new Error("ID kompetisi checkpoint tidak valid.");
     this.path = resolve(directory, `.fixture-pages-${sourceCompetitionId}.json`);
   }
 

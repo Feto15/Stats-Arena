@@ -23,8 +23,10 @@ export function parseMatchDetailTabLinksHtml(html: string, sourceUrl: string): P
   const url = validateSourceUrl(sourceUrl);
   const gameId = sourceEntityId(url.href, "match");
   if (!gameId) throw new ParserError("ID pertandingan tidak ditemukan dari URL tab", sourceUrl, "/match/{id}/{tab}");
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   const links = new Map<string, string>();
+  // IBL omits the Summary menu item on its own summary page. The current URL is explicit evidence.
+  if (url.pathname.endsWith("/summary")) links.set("summary", url.href);
   for (const anchor of $("a.menuoption[href]").toArray()) {
     const href = $(anchor).attr("href");
     if (!href) continue;
@@ -61,7 +63,7 @@ export function parseCompetitionStatisticsLinkHtml(html: string, sourceUrl: stri
   const url = validateSourceUrl(sourceUrl);
   const competitionId = sourceEntityId(url.href, "competition");
   if (!competitionId) throw new ParserError("ID kompetisi tidak ditemukan dari URL fixtures", sourceUrl, "/competition/{id}");
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   let found: string | null = null;
   for (const anchor of $("a[href]").toArray()) {
     const href = $(anchor).attr("href");

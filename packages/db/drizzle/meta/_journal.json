@@ -36,6 +36,34 @@
       "when": 1791573950882,
       "tag": "0004_incremental_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791779527295,
+      "tag": "0005_massive_unicorn",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791883747069,
+      "tag": "0006_magenta_khan",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792129605612,
+      "tag": "0007_quiet_polaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792136077322,
+      "tag": "0008_stiff_blockbuster",
+      "breakpoints": true
     }
   ]
 }

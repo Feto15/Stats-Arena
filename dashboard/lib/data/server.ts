@@ -1,4 +1,6 @@
+import { validateSourceUrl } from "@statsarena/db/source";
 import "server-only";
+import { getGlobalReview } from "./global-review";
 
 import { resolve } from "node:path";
 import { createDatabase, type StatsArenaDatabase } from "@statsarena/db";
@@ -10,6 +12,8 @@ import {
   getOverview,
   getPlayerSummary,
   getPlayersPage,
+  getPlayerTeamOptions,
+  type PlayerListFilters,
   getReviewSummary,
   getStandings,
   getTeamSummary,
@@ -88,9 +92,14 @@ export async function readTeam(competitionId: string, sourceTeamId: string) {
   }
 }
 
-export async function readPlayers(competitionId: string, page: number) {
+export async function readPlayers(competitionId: string, page: number, filters: PlayerListFilters) {
   try {
-    return { status: "ready" as const, data: await getPlayersPage(getDashboardDatabase(), competitionId, page) };
+    const db = getDashboardDatabase();
+    const [data, teamOptions] = await Promise.all([
+      getPlayersPage(db, competitionId, page, undefined, filters),
+      getPlayerTeamOptions(db, competitionId),
+    ]);
+    return { status: "ready" as const, data, teamOptions };
   } catch {
     return { status: "error" as const, message: "Daftar pemain belum dapat dimuat. Coba muat ulang halaman." };
   }
@@ -120,20 +129,22 @@ export async function readReview(competitionId: string, filters: ReviewFilters) 
   }
 }
 
-/** Only link to the public Genius Sports pages from the expected basketball competition area. */
+export async function readGlobalReview(filters: ReviewFilters) {
+  try {
+    return { status: "ready" as const, data: await getGlobalReview(getDashboardDatabase(), filters) };
+  } catch {
+    return { status: "error" as const, message: "Daftar laga bermasalah belum dapat dimuat. Coba muat ulang halaman." };
+  }
+}
+
+/** Only link to the supported public portal and LiveStats match pages. */
 export function safeSourceHref(value: string | null | undefined): string | null {
   if (!value) return null;
-  try {
-    const url = new URL(value);
-    if (
-      url.protocol !== "https:" ||
-      url.hostname !== "hosted.dcd.shared.geniussports.com" ||
-      !url.pathname.startsWith("/IBF/en/") ||
-      url.username ||
-      url.password
-    ) return null;
-    return url.toString();
-  } catch {
-    return null;
+  try { return validateSourceUrl(value).href; } catch {
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && url.hostname === "fibalivestats.dcd.shared.geniussports.com" && !url.port && !url.username && !url.password && !url.search && !url.hash &&
+        /^\/u\/(?:IBF|IBL)\/[1-9]\d*\/bs\.html$/.test(url.pathname) ? url.href : null;
+    } catch { return null; }
   }
 }

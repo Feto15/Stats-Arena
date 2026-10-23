@@ -2,7 +2,7 @@ import { and, eq, gt, lt, ne, sql } from "drizzle-orm";
 import { hostname } from "node:os";
 import { randomUUID } from "node:crypto";
 import type { StatsArenaDatabase } from "@statsarena/db";
-import { SOURCE_NAME } from "../domain/types.js";
+import { competitionReference } from "@statsarena/db/source";
 import { syncLeases, syncRuns } from "@statsarena/db/schema";
 
 type SyncTransaction = Parameters<Parameters<StatsArenaDatabase["transaction"]>[0]>[0];
@@ -40,8 +40,8 @@ export async function acquireSyncLease(
 ): Promise<SyncLease> {
   const expiry = () => sql`now() + ${ttlMs} * interval '1 millisecond'`;
   const [lease] = await db.insert(syncLeases).values({
-    source: SOURCE_NAME,
-    sourceCompetitionId,
+    source: competitionReference(sourceCompetitionId).source,
+    sourceCompetitionId: competitionReference(sourceCompetitionId).id,
     ownerId,
     hostname: hostname(),
     processId: process.pid,
@@ -68,8 +68,8 @@ export async function acquireSyncLease(
     finishedAt: new Date(),
     resultSummary: "Run sebelumnya berhenti mengirim heartbeat; lease kedaluwarsa dan data aman dilanjutkan."
   }).where(and(
-    eq(syncRuns.source, SOURCE_NAME),
-    eq(syncRuns.sourceCompetitionId, sourceCompetitionId),
+    eq(syncRuns.source, competitionReference(sourceCompetitionId).source),
+    eq(syncRuns.sourceCompetitionId, competitionReference(sourceCompetitionId).id),
     eq(syncRuns.status, "running"),
     lt(syncRuns.heartbeatAt, staleBefore),
     ne(syncRuns.ownerId, ownerId)
@@ -83,8 +83,8 @@ export async function acquireSyncLease(
         heartbeatAt: sql`now()`,
         expiresAt: expiry()
       }).where(and(
-        eq(syncLeases.source, SOURCE_NAME),
-        eq(syncLeases.sourceCompetitionId, sourceCompetitionId),
+        eq(syncLeases.source, competitionReference(sourceCompetitionId).source),
+        eq(syncLeases.sourceCompetitionId, competitionReference(sourceCompetitionId).id),
         eq(syncLeases.ownerId, ownerId),
         gt(syncLeases.expiresAt, sql`now()`)
       )).returning({ ownerId: syncLeases.ownerId });
@@ -92,8 +92,8 @@ export async function acquireSyncLease(
     },
     async assertOwned() {
       const [current] = await db.select({ ownerId: syncLeases.ownerId }).from(syncLeases).where(and(
-        eq(syncLeases.source, SOURCE_NAME),
-        eq(syncLeases.sourceCompetitionId, sourceCompetitionId),
+        eq(syncLeases.source, competitionReference(sourceCompetitionId).source),
+        eq(syncLeases.sourceCompetitionId, competitionReference(sourceCompetitionId).id),
         eq(syncLeases.ownerId, ownerId),
         gt(syncLeases.expiresAt, sql`now()`)
       )).limit(1);
@@ -101,8 +101,8 @@ export async function acquireSyncLease(
     },
     async guardTransaction(transaction) {
       const [current] = await transaction.select({ ownerId: syncLeases.ownerId }).from(syncLeases).where(and(
-        eq(syncLeases.source, SOURCE_NAME),
-        eq(syncLeases.sourceCompetitionId, sourceCompetitionId),
+        eq(syncLeases.source, competitionReference(sourceCompetitionId).source),
+        eq(syncLeases.sourceCompetitionId, competitionReference(sourceCompetitionId).id),
         eq(syncLeases.ownerId, ownerId),
         gt(syncLeases.expiresAt, sql`now()`)
       )).for("update").limit(1);
@@ -110,8 +110,8 @@ export async function acquireSyncLease(
     },
     async release() {
       await db.delete(syncLeases).where(and(
-        eq(syncLeases.source, SOURCE_NAME),
-        eq(syncLeases.sourceCompetitionId, sourceCompetitionId),
+        eq(syncLeases.source, competitionReference(sourceCompetitionId).source),
+        eq(syncLeases.sourceCompetitionId, competitionReference(sourceCompetitionId).id),
         eq(syncLeases.ownerId, ownerId)
       ));
     }

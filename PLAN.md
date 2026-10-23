@@ -1,5 +1,11 @@
 # Rencana Proyek StatsArena
 
+Pembaruan 22 Oktober 2026: modul TypeScript bersama `statsarena-analytics/1.0.0` dipakai JSON analisis dan metrik pemain dashboard. Sync/retry/runner mengekspor otomatis; audit lama dapat dihitung offline. Verifikasi lokal mencakup rumus SQL/TypeScript, preservation, namespace, preview, dan data 49607/49609. Tidak ada migrasi atau perubahan data Neon pada pekerjaan ini. Lihat [ANALYTICS.md](./docs/ANALYTICS.md).
+
+Rencana tambahan yang belum diimplementasikan: TS% lawan, TOV% lawan, 3PA/FGA lawan, dan FTA/FGA lawan dari `opponentTotals`. eFG% lawan sudah tersedia di JSON analisis. Definisi, rumus, dan batas interpretasi dicatat di [pengembangan statistik](./docs/PENGEMBANGAN_STATISTIK.md#tambahan-metrik-lawan--catatan-pengembangan-22-oktober-2026).
+
+Pembaruan 17 Oktober 2026: parser portal `0.2.5` membaca PIP/PFT/FBP tim per laga. Dashboard memilih nilai portal yang valid kemudian LiveStats sebagai cadangan per metrik; kedua sumber tetap tersimpan dan selisih masuk Review. Pengisian data lama memakai `metrics backfill` dari snapshot terverifikasi. Lihat [aturan ingest](./docs/INGEST.md) dan [prioritas dashboard](./docs/DASHBOARD.md).
+
 Status: diperbarui 8 Oktober 2026. Tahap 1–6 selesai dan diverifikasi sesuai cakupannya. Perbaikan review parser `0.2.2` mencakup jadwal tanpa query, antrean fixture lintas siklus, provenance seluruh pass refresh, dan audit kegagalan impor. Migrasi `0003_sync_operations`, impor dua kompetisi, serta impor ulang di Neon berhasil; jumlah record logis tetap sama dan statistik/detail identik dilewati. Runner berkala tersedia sebagai CLI dan belum dipasang sebagai layanan permanen.
 
 ## Tujuan
@@ -108,6 +114,14 @@ Perbaikan review Tahap 5 pada parser `0.2.1` memperketat perlindungan event PBP 
 
 ## Kriteria selesai untuk versi pertama
 
+Perbaikan status 13 Oktober 2026: kelengkapan tiap dataset disimpan terpisah dari hasil laga, dengan alasan spesifik dan jadwal retry incremental. Migrasi `0006_magenta_khan` serta backfill 152 laga diterapkan pada Neon; pengulangan menghasilkan nol pembaruan dan seluruh isi statistik/histori isu tetap sama. Panel detail/Review diverifikasi pada dua kompetisi dan viewport ponsel. Anomali sumber tetap parsial sampai bukti sumber valid tersedia. Lihat [panduan kualitas data](./docs/DATA_QUALITY.md).
+
+Penyiapan runner 13 Oktober 2026: topology GitHub/Coolify/VPS untuk runner dan volume lokal, Vercel untuk dashboard, serta Neon untuk data. Mode `runner service`, Docker/Compose, dan CI telah disiapkan; sepuluh test service/operasi serta lint/typecheck/build ingest lulus. Build image dan deployment Coolify masih perlu diverifikasi di resource yang dituju. Lihat [panduan deployment runner](./docs/RUNNER_DEPLOYMENT.md).
+
+Tambahan efisiensi Neon 12 Oktober 2026: migrasi `0005_massive_unicorn` diterapkan. Audit ringkasan merujuk baseline lengkap, metadata/klasemen identik dilewati, dan observasi dibatasi harian. Dua siklus nyata pada putra/putri mempertahankan jumlah serta ID data; siklus kedua menulis nol fetch audit, statistik, metadata, dan klasemen. Seluruh 80 test, lint, typecheck, dan build lulus. Lihat [hasil efisiensi Neon](./docs/NEON_EFFICIENCY.md).
+
+Tambahan retensi lokal 12 Oktober 2026: runner memakai audit ringkas dan pembersihan maksimal sekali per hari setelah impor sukses. Dua versi valid, review yang belum selesai, dan arsip eksplisit dipertahankan. Pembersihan nyata meringkas 57 audit dan menghapus 11 blob lama; seluruh 77 test, lint, typecheck, build, hash baseline, serta checkpoint lulus verifikasi. Statistik/provenance Neon tidak dihapus. Lihat [panduan retensi](./docs/STORAGE_RETENTION.md).
+
 Tambahan operasional 10 Oktober 2026: mode `--incremental` memeriksa ulang fixture dan hanya mengambil detail laga baru/berubah, live/unknown, atau yang belum valid/gagal. Penanda fixture asli dan validitas detail disimpan di Neon lewat migrasi `0004_incremental_sync`; baseline lama dibentuk sekali dari cache tervalidasi. Seluruh 68 test, lint, typecheck, build, migrasi Neon, bootstrap, dan dry-run normal dua kompetisi lulus. Detail tidak diproses ulang pada 35/25 laga yang tidak berubah. Koreksi detail yang tidak mengubah fixture tetap memerlukan sinkronisasi standar/refresh berkala. Lihat [mode incremental](./docs/SYNC_OPERATIONS.md#mode-incremental-hanya-detail-laga-baru-atau-berubah).
 
 - Kompetisi `49607` dapat diimpor dan ditampilkan tanpa memasukkan ID tim/pemain/laga satu per satu.
@@ -117,3 +131,9 @@ Tambahan operasional 10 Oktober 2026: mode `--incremental` memeriksa ulang fixtu
 - Klasemen Grup A dan B menampilkan tiga tim masing-masing sesuai halaman resmi, dengan urutan yang sama.
 - Pengambilan ulang tidak menghasilkan duplikasi; kegagalan parser dan selisih validasi terlihat di halaman Review/log impor.
 - Dashboard mengambil data dari Neon, tanpa akses langsung dari browser ke Genius Sports atau kredensial database.
+
+## Dukungan IBL — 16 Oktober 2026
+
+Perluasan sumber yang diizinkan adalah [pelengkap LiveStats](./docs/LIVESTATS.md): portal tetap menentukan identitas/jadwal/klasemen/statistik dasar, sedangkan JSON LiveStats melengkapi plus/minus, starter, dan metrik tambahan. Adapter terpisah menjaga status/provenance serta backfill laga lama. Hasil migrasi dan pembaruan nyata dicatat pada verifikasi Neon.
+
+Parser `0.2.4` menerima namespace IBF/IBL secara terisolasi, termasuk importer, lease, incremental, audit/retry, checkpoint, dan filter dashboard. Identitas IBF lama dipertahankan. Kolom 2P yang absen dihitung dari FG−3P dengan metadata formula/versi/input; migrasi `0007_quiet_polaris` sudah diterapkan di Neon dan isi 14 tabel domain tetap sama. Sampel IBL `42041` diuji dengan fixture nyata dan dry-run satu laga; tab klasemen kosong tetap parsial. Kompetisi belum otomatis didaftarkan/diimpor. Lihat [panduan sumber IBL](./docs/SUMBER_DATA_IBL.md).

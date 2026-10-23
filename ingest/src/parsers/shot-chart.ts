@@ -1,3 +1,4 @@
+import { QUALITY_FIELD_LABELS } from "@statsarena/db/data-quality";
 import type { ParseReport, ShotRecord } from "../domain/types.js";
 import { shotSchema } from "../domain/types.js";
 import { sourceEntityId, validateSourceUrl } from "../domain/source-url.js";
@@ -18,7 +19,7 @@ export function parseShotChartHtml(html: string, sourceUrl: string): ParseReport
   const url = validateSourceUrl(sourceUrl);
   const gameId = sourceEntityId(url.href, "match");
   if (!gameId) throw new ParserError("ID pertandingan tidak ditemukan dari URL", sourceUrl, "/match/{id}/shotchart");
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   if (!$("#shotchart").length) throw new ParserError("Panel Shot chart tidak ditemukan", sourceUrl, "#shotchart");
   const markers = $("#shotchart .sc_img").toArray();
   if (!markers.length) throw new ParserError("Marker Shot chart tidak ditemukan", sourceUrl, "#shotchart .sc_img");
@@ -45,8 +46,14 @@ export function parseShotChartHtml(html: string, sourceUrl: string): ParseReport
     const periodNumber = periodText ? Number(periodText) : null;
     const x = styleCoordinate(marker.attr("style") ?? "", "left");
     const y = styleCoordinate(marker.attr("style") ?? "", "top");
-    if (!result || !teamSourceId || !playerSourceId || periodNumber === null || x.value === null || y.value === null) {
-      issues.push(issue("error", "SHOT_MARKER_INCOMPLETE", "Marker 2PT/3PT kehilangan hasil, ID sumber, periode, atau koordinat valid; dataset sebelumnya dipertahankan.", sourceUrl, `markers.${sourceSequence}`, null, { title, classes, style: marker.attr("style") ?? null }));
+    const invalidFields = [
+      ...(!result ? ["result"] : []), ...(!teamSourceId ? ["teamSourceId"] : []),
+      ...(!playerSourceId ? ["playerSourceId"] : []),
+      ...(periodNumber === null || periodNumber < 1 ? ["periodNumber"] : []),
+      ...(x.value === null ? ["xPercent"] : []), ...(y.value === null ? ["yPercent"] : [])
+    ];
+    if (invalidFields.length || !teamSourceId || !playerSourceId) {
+      issues.push(issue("error", "SHOT_MARKER_INCOMPLETE", `Marker 2PT/3PT memiliki field hilang/tidak valid: ${invalidFields.map((field) => QUALITY_FIELD_LABELS[field] ?? field).join(", ")}; dataset sebelumnya dipertahankan.`, sourceUrl, `markers.${sourceSequence}`, null, { title, classes, style: marker.attr("style") ?? null, invalidFields }));
       return;
     }
     const shotTypeIndex = title.toLowerCase().indexOf(type);

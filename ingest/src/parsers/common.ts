@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Cheerio, CheerioAPI } from "cheerio";
 import type { AnyNode } from "domhandler";
 import type { IssueSeverity, ParseReport, ValidationIssue } from "../domain/types.js";
-import { sourceEntityId } from "../domain/source-url.js";
+import { sourceEntityId, sameSourceNamespace } from "../domain/source-url.js";
 
 export class ParserError extends Error {
   constructor(
@@ -15,8 +15,15 @@ export class ParserError extends Error {
   }
 }
 
-export function loadHtml(html: string): CheerioAPI {
-  return cheerio.load(html);
+export function loadHtml(html: string, sourceUrl?: string): CheerioAPI {
+  const $ = cheerio.load(html);
+  if (sourceUrl) for (const anchor of $("a[href], option[value]").toArray()) {
+    const attr = anchor.tagName === "option" ? "value" : "href";
+    const href = $(anchor).attr(attr);
+    try { if (href && !sameSourceNamespace(new URL(href, sourceUrl).href, sourceUrl)) $(anchor).removeAttr(attr); }
+    catch { $(anchor).removeAttr(attr); }
+  }
+  return $;
 }
 
 export function requiredSelection<T extends AnyNode>(
@@ -94,7 +101,7 @@ export function absoluteSourceUrl(sourceUrl: string, href: string | null | undef
   if (!href) return null;
   try {
     const value = new URL(href, sourceUrl);
-    return value.protocol === "https:" ? value.href : null;
+    return sameSourceNamespace(value.href, sourceUrl) ? value.href : null;
   } catch {
     return null;
   }

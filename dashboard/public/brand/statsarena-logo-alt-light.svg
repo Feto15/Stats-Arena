@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">StatsArena — S trajectory mark</title>
+  <desc id="desc">A square StatsArena monogram for light backgrounds.</desc>
+  <rect width="512" height="512" rx="112" fill="#F5F3EE"/>
+  <path d="M363 133c-31-25-75-37-119-37h-26c-64 0-106 40-106 94 0 49 34 72 94 87l93 23c64 16 101 48 101 99 0 50-45 78-109 78h-135" stroke="#111214" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="365" cy="132" r="39" fill="#FF5A1F"/>
+  <path d="M342 88c3 21 17 43 40 55M333 131c19-8 43-9 65-3" stroke="#292B2E" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="260" cy="302" r="8" fill="#898B90"/>
+  <circle cx="284" cy="308" r="8" fill="#D8D5CF"/>
+</svg>

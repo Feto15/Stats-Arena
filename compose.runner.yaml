@@ -1,0 +1,40 @@
+services:
+  runner:
+    build:
+      context: .
+      dockerfile: deploy/runner/Dockerfile
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30m
+    read_only: true
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set pooled DATABASE_URL StatsArena}
+      STATSARENA_SYNC_INTERVAL_SECONDS: ${STATSARENA_SYNC_INTERVAL_SECONDS:-900}
+      STATSARENA_FULL_SYNC_INTERVAL_SECONDS: ${STATSARENA_FULL_SYNC_INTERVAL_SECONDS:-86400}
+      STATSARENA_SNAPSHOT_DIR: ingest/snapshots
+      STATSARENA_AUDIT_DIR: ingest/audit
+      STATSARENA_CATALOG_PATH: ingest/audit/competitions_catalog.json
+      STATSARENA_FETCH_TIMEOUT_MS: ${STATSARENA_FETCH_TIMEOUT_MS:-20000}
+      STATSARENA_FETCH_CONCURRENCY: ${STATSARENA_FETCH_CONCURRENCY:-3}
+      STATSARENA_FETCH_RETRIES: ${STATSARENA_FETCH_RETRIES:-3}
+      STATSARENA_FIXTURE_PAGE_LIMIT: ${STATSARENA_FIXTURE_PAGE_LIMIT:-100}
+    volumes:
+      - runner-snapshots:/app/ingest/snapshots
+      - runner-audit:/app/ingest/audit
+    tmpfs:
+      - /tmp:uid=1000,gid=1000,mode=1777
+      - /app/ingest/.locks:uid=1000,gid=1000,mode=0700
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  runner-snapshots:
+  runner-audit:

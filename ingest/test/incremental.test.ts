@@ -101,9 +101,9 @@ test("incremental runner discovers playoff fixtures, refreshes changed details, 
       migrationsSchema: "statsarena", migrationsTable: "__drizzle_migrations" });
     const db = drizzle(client, { schema }) as unknown as StatsArenaDatabase;
     let cycle = 0;
-    const run = (incremental: boolean, dryRun = false, matchLimit?: number, forceRefreshUrls?: ReadonlySet<string>) => runCompetitionSync({
+    const run = (incremental: boolean, dryRun = false, matchLimit?: number, forceRefreshUrls?: ReadonlySet<string>, auditPolicy: "full" | "auto" = "full") => runCompetitionSync({
       input: root, db, fetcher, snapshotDirectory: directory, lockRoot: join(directory, "locks"),
-      auditPath: () => join(directory, `cycle-${++cycle}.json`), incremental, dryRun,
+      auditPath: () => join(directory, `cycle-${++cycle}.json`), incremental, dryRun, auditPolicy,
       ...(matchLimit === undefined ? {} : { matchLimit }),
       ...(forceRefreshUrls === undefined ? {} : { forceRefreshUrls })
     });
@@ -117,11 +117,16 @@ test("incremental runner discovers playoff fixtures, refreshes changed details, 
 
     clock += 48 * 60 * 60_000;
     calls.length = 0;
-    const skipped = await run(true);
+    const skipped = await run(true, false, undefined, undefined, "auto");
     assert.equal(skipped.result.parseCounts["matchesProcessed"], 0);
     assert.equal(skipped.result.parseCounts["unchangedMatchesSkipped"], 2);
     assert.ok(!calls.some((url) => url.includes("/match/")));
     assert.equal(skipped.imported?.counts["playerGameStats"], 0);
+    assert.equal(skipped.audit.auditType, "summary");
+    const compactAudit = JSON.parse(await readFile(join(directory, `cycle-${cycle}.json`), "utf8"));
+    assert.equal(compactAudit.data, null);
+    assert.ok(compactAudit.datasetReferences["49607:teams"].file);
+    assert.ok(skipped.maintenance);
 
     state.nextCompleted = true; state.publishFinal = true;
     const runCount = await db.select({ value: count() }).from(syncRuns);
@@ -167,7 +172,10 @@ test("incremental runner discovers playoff fixtures, refreshes changed details, 
     assert.equal((await readIncrementalGames(db, "49607")).get("2931666")?.detailSyncStatus, "partial");
     assert.deepEqual(await db.select({ value: count() }).from(playByPlayEvents), [{ value: 1096 }]);
     state.shrink = false;
-    const recovered = await run(true);
+    const waiting = await run(true);
+    assert.equal(waiting.result.parseCounts["matchesProcessed"], 0);
+    // Manual retry is allowed before the anomaly observation cadence expires.
+    const recovered = await run(true, false, undefined, new Set([targetedUrl]));
     assert.equal(recovered.result.parseCounts["selected_retry"], 1);
     assert.equal(recovered.imported?.status, "succeeded");
     assert.equal((await run(true)).result.parseCounts["matchesProcessed"], 0);

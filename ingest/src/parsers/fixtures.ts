@@ -1,7 +1,7 @@
 import type { AnyNode } from "domhandler";
 import type { CompetitionPageData, GameRecord, ParseReport } from "../domain/types.js";
 import { competitionSchema, gameSchema } from "../domain/types.js";
-import { sourceEntityId, validateSourceUrl } from "../domain/source-url.js";
+import { sourceEntityId, validateSourceUrl, competitionReference, sameCompetition } from "../domain/source-url.js";
 import {
   absoluteSourceUrl,
   cleanText,
@@ -107,7 +107,7 @@ export function parseFixturesHtml(html: string, sourceUrl: string): ParseReport<
   const competitionId = sourceEntityId(url.href, "competition");
   if (!competitionId) throw new ParserError("ID kompetisi tidak ditemukan dari URL", sourceUrl, "/competition/{id}");
 
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   const selectorOption = $("#competitionChooser option").toArray().find((option) => {
     const value = $(option).attr("value");
     return value !== undefined && sourceEntityId(value, "competition") === competitionId;
@@ -194,15 +194,15 @@ export function parseFixturePageLinksHtml(html: string, sourceUrl: string): stri
   const current = validateSourceUrl(sourceUrl);
   const competitionId = sourceEntityId(current.href, "competition");
   if (!competitionId) throw new ParserError("ID kompetisi tidak ditemukan dari URL", sourceUrl, "/competition/{id}");
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   const links = new Set<string>();
   for (const anchor of $("a[href]").toArray()) {
     const href = $(anchor).attr("href");
     if (!href) continue;
     const absolute = absoluteSourceUrl(current.href, href);
     if (!absolute) continue;
-    const target = fixturePageUrl(absolute, competitionId);
-    if (!target || target === fixturePageUrl(current.href, competitionId)) continue;
+    const target = fixturePageUrl(absolute, current.href);
+    if (!target || target === fixturePageUrl(current.href, current.href)) continue;
     links.add(target);
   }
   return [...links];
@@ -212,8 +212,9 @@ export function parseFixturePageLinksHtml(html: string, sourceUrl: string): stri
 export function fixturePageUrl(input: string, competitionId: string): string | null {
   try {
     const url = validateSourceUrl(input);
-    if (url.username || url.password || url.port || sourceEntityId(url.href, "competition") !== competitionId) return null;
-    if (!new RegExp(`^/IBF/en/competition/${competitionId}(?:/schedule)?/?$`).test(url.pathname)) return null;
+    const reference = competitionReference(competitionId);
+    if (url.username || url.password || url.port || !sameCompetition(url.href, reference.url)) return null;
+    if (!new RegExp(`^/(?:IBF|IBL)/en/competition/${reference.id}(?:/schedule)?/?$`).test(url.pathname)) return null;
     url.hash = "";
     if (!url.search) url.search = "";
     return url.href;

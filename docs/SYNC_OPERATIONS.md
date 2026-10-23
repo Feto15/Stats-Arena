@@ -1,8 +1,20 @@
 # Sinkronisasi dan operasional
 
-Status: Tahap 6 memakai parser `0.2.2`, dengan tambahan mode incremental terverifikasi pada 10 Oktober 2026. Preflight read-only berhasil setelah proses memperoleh akses jaringan; `ENOTFOUND` pada percobaan sebelumnya berasal dari lingkungan jaringan terbatas. Hasil migrasi dan impor dicatat di [verifikasi Neon](./NEON_VERIFICATION.md).
+## Ekspor analitik otomatis — 22 Oktober 2026
+
+Setelah audit tersimpan, sync/retry/runner memperbarui `ingest/audit/analysis/<key>.json` dan katalog menautkannya melalui `analysisFile`. Incremental mempertahankan input valid laga yang dilewati. Dry-run/snapshot menulis `<key>.preview.json` tanpa mengganti file utama. JSON sumber serta baseline audit tetap terpisah; tidak ada migrasi analitik baru. Kegagalan ekspor dilaporkan sebagai peringatan/`analysis: null`, tanpa membatalkan impor yang sudah commit. Pulihkan offline dengan `analysis export --competition <ref>`. Versi rumus, cakupan, dan batas data ada di [ANALYTICS.md](./ANALYTICS.md).
+
+CLI sync/retry/runner memperbarui tambahan LiveStats setelah commit portal dengan lease yang sama. Seleksi tambahan independen dari incremental portal. Gunakan `livestats backfill --dry-run` lalu `livestats backfill` untuk data lama, atau `livestats sync --competition <ref> --game <id> --refresh` untuk satu laga. Status LiveStats terpisah dari kualitas portal. Panduan lengkap: [LIVESTATS.md](./LIVESTATS.md).
+
+Status: parser saat ini `0.2.4`, dengan kualitas dataset dan jeda retry incremental terverifikasi pada 13 Oktober 2026. Hasil historis Tahap 6 memakai parser `0.2.2`; mode incremental awal diverifikasi pada 10 Oktober 2026. Preflight read-only berhasil setelah proses memperoleh akses jaringan; `ENOTFOUND` pada percobaan sebelumnya berasal dari lingkungan jaringan terbatas. Hasil migrasi dan impor dicatat di [verifikasi Neon](./NEON_VERIFICATION.md).
 
 ## Menjalankan runner
+
+Deployment permanen memakai **GitHub → Coolify → VPS** hanya untuk runner; dashboard tetap di Vercel. Mode baru `runner service` memilih incremental rutin dan pemeriksaan standar harian, dengan heartbeat/checkpoint permanen. Konfigurasi Docker, volume dan batas verifikasi ada di [panduan deployment runner](./RUNNER_DEPLOYMENT.md).
+
+Runner sekarang menggunakan audit ringkas otomatis: siklus tanpa perubahan menyimpan ringkasan dan referensi hash, perubahan menyimpan dataset yang berubah, dan kegagalan menyimpan payload lengkap. Pembersihan lokal paling sering sekali sehari sesudah impor sukses mempertahankan dua versi valid, review yang belum selesai, dan arsip eksplisit. Lihat [kebijakan retensi](./STORAGE_RETENTION.md) untuk format audit serta perintah preview/pembersihan.
+
+Sejak migrasi `0005_massive_unicorn`, Neon juga menyimpan ringkasan untuk input identik dengan run sukses tepat sebelumnya. Referensi baseline mempertahankan provenance dan isu review tanpa menggandakan fetch audit. Metadata/klasemen identik tidak ditulis ulang; observasi peserta diperbarui paling sering sekali sehari. Audit berubah/gagal dan archive tetap lengkap. Lihat [efisiensi Neon dan verifikasinya](./NEON_EFFICIENCY.md).
 
 Runner memakai daftar kompetisi aktif di [`ingest/config/competitions.json`](../ingest/config/competitions.json). Jalankan dari root workspace:
 
@@ -41,11 +53,11 @@ pnpm --dir ingest run cli runner watch --incremental --interval-seconds 900
 pnpm --dir ingest run cli retry --competition 49607 --incremental
 ```
 
-Mode ini membutuhkan migrasi `0004_incremental_sync` dan `DATABASE_URL`, termasuk saat dry-run. Dry-run membaca state database tetapi tidak menulis lease, run, atau penanda sukses. `--incremental` tidak dapat digabung dengan `--refresh` atau `--snapshot-only`. Perintah tanpa `--incremental` mempertahankan perilaku TTL sebelumnya.
+Mode ini memakai penanda dari migrasi `0004_incremental_sync` dan kualitas dataset dari `0006_magenta_khan`; terapkan seluruh migrasi serta sediakan `DATABASE_URL`, termasuk saat dry-run. Dry-run membaca state database tetapi tidak menulis lease, run, atau penanda sukses. `--incremental` tidak dapat digabung dengan `--refresh` atau `--snapshot-only`. Perintah tanpa `--incremental` mempertahankan perilaku TTL sebelumnya.
 
 Setiap siklus mengambil ulang root dan halaman fixture yang ditemukan, termasuk antrean kelanjutan. Detail dipilih ketika laga baru, status/skor/tim/jadwal/venue berubah, berstatus live/unknown, parsing sebelumnya belum valid, versi parser berubah, atau ada kegagalan impor sebelumnya. Laga scheduled hanya di-upsert dari fixture dan tidak meminta halaman statistik. Teams, Players, Standings, serta Team Statistics kompetisi tetap memakai TTL karena datanya berada pada scope kompetisi.
 
-Database menyimpan `games.fixture_hash` berdasarkan observasi fixture asli, bukan field yang digabung dari summary. Nama tampilan dan tab URL ekuivalen tidak menyebabkan refresh palsu. `detail_sync_status`, `detail_parser_version`, dan `detail_synced_at` dicatat setelah validasi/guard detail dalam transaksi pertandingan. Data gagal/parsial tetap ditandai untuk dicoba ulang; rollback tidak memajukan hash/penanda sukses, sementara penanda kegagalan terpisah ditulis dengan guard lease. Statistik valid tetap dipertahankan. Penanda tidak bergantung pada file state lokal, sehingga mesin lain memakai state Neon yang sama.
+Database menyimpan `games.fixture_hash` berdasarkan observasi fixture asli, bukan field yang digabung dari summary. Nama tampilan dan tab URL ekuivalen tidak menyebabkan refresh palsu. `detail_sync_status`, `detail_parser_version`, `detail_synced_at`, dan `detail_quality` dicatat setelah validasi/guard detail dalam transaksi pertandingan. Data gagal/parsial tetap ditandai untuk dicoba ulang sesuai waktu retry per dataset. Rollback tidak memajukan hash/penanda sukses; penanda kegagalan terpisah ditulis dengan guard lease dan kualitas lama dibatalkan agar cooldown tidak menghalangi pemulihan. Statistik valid tetap dipertahankan. Penanda tidak bergantung pada file state lokal, sehingga mesin lain memakai state Neon yang sama.
 
 Impor lama yang belum memiliki hash fixture diproses sekali untuk membentuk baseline (`selected_unverified`), menggunakan cache tervalidasi bila masih berlaku. Sesudah baseline tersedia, detail lama dilewati. Audit mencantumkan `strategy: incremental`, `fixturesDiscovered`, `matchesProcessed`, `unchangedMatchesSkipped`, serta alasan `selected_new/changed/active/retry/parser_changed/unverified`. Jumlah laga/statistik dalam hasil impor menghitung subset pada siklus itu, bukan total tersimpan di Neon. `--match-limit` membatasi subset dan mendahulukan active, new, changed, lalu retry.
 
@@ -113,3 +125,11 @@ Overview menampilkan status sinkronisasi untuk kompetisi yang sedang dipilih: ru
 Untuk memastikan kedua impor memakai HTML tervalidasi yang sama, TTL cache diperpanjang sementara menjadi tujuh hari hanya pada proses verifikasi. Kedua siklus menggunakan 185/122 cache hit, tanpa HTTP baru. Pengaturan `.env`, TTL bawaan, dan interval runner tidak diubah; sumber operasional tetap diperiksa ulang sesuai TTL normal. Pengambilan HTML live dibuktikan oleh dry-run terpisah sebelum impor, sedangkan transaksi/idempotensi Neon dibuktikan oleh run impor dan query read-only sesudahnya. Gunakan `runner watch` bila ingin menjalankan siklus berkala; proses tersebut belum dipasang sebagai layanan latar belakang permanen.
 
 Pemeriksaan proyek: `pnpm lint`, `pnpm typecheck`, `pnpm test`, dan `pnpm build`. Cara menjalankan perintah ini dijelaskan di [`AGENTS.md`](../AGENTS.md).
+
+## Retry menurut penyebab
+
+Incremental mengikuti jadwal dataset quality: transport memakai backoff 5–60 menit, parser/struktur satu jam, anomali/identitas sumber 24 jam. Fixture berubah, versi parser baru, live/unknown, retry manual, dan pemeriksaan standar tetap dapat memicu pemeriksaan lebih cepat. Lihat [DATA_QUALITY.md](./DATA_QUALITY.md) untuk batas seleksi per laga dan perintah backfill status lama.
+
+## Scope IBF/IBL — 16 Oktober 2026
+
+Parser `0.2.4` menggunakan referensi `IBL:<ID>` untuk operasi IBL; ID angka lama tetap IBF. Konfigurasi runner harus menyimpan URL kompetisi lengkap. Source Neon terpisah (`genius_sports` dan `genius_sports:IBL`), dengan ID mentah; lock, lease, checkpoint, nama audit, hash dataset dan retry memakai scope yang sesuai. URL/fetch tidak boleh berpindah namespace. Upgrade parser memicu sekali validasi ulang detail versi lama; tidak mengganti identitas data IBF. Terapkan seluruh migrasi sampai `0007_quiet_polaris` sebelum memakai versi ini. Lihat [panduan IBL](./SUMBER_DATA_IBL.md).

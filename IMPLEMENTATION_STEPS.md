@@ -1,5 +1,19 @@
 # Langkah Implementasi StatsArena
 
+## Tambahan analitik — 22 Oktober 2026
+
+- [x] Modul rumus TypeScript bersama dengan evaluator angka dan SQL, versi serta definisi eksplisit.
+- [x] JSON analisis pemain/tim per laga dan kompetisi, agregasi dari total, null, provenance, scope, preservation, serta isolasi namespace.
+- [x] Ekspor otomatis sync/retry/runner dan preview untuk dry-run/snapshot; ekspor offline audit full/delta/summary, tautan katalog.
+- [x] Verifikasi lokal 123 test (114 ingest, sembilan dashboard), lint, typecheck, build, serta regresi fixture-only terbaru dan katalog. Snapshot-only dua kompetisi menghasilkan preview tanpa impor Neon.
+- [x] Ekspor data lokal 49607 (35 laga masuk) dan 49609 (25 laga masuk); ini hasil audit lokal, bukan audit ulang Neon. Panduan dan batas: [ANALYTICS.md](./docs/ANALYTICS.md).
+- [ ] Penyajian kolom analitik tambahan pada UI dan pengembangan lineup/on-off merupakan pekerjaan terpisah.
+- [ ] Ekspor TS% lawan, TOV% lawan, 3PA/FGA lawan, dan FTA/FGA lawan dari total input pada cakupan laga yang sama. Saat ini baru eFG% lawan yang tersedia; spesifikasi dicatat di [pengembangan statistik](./docs/PENGEMBANGAN_STATISTIK.md#tambahan-metrik-lawan--catatan-pengembangan-22-oktober-2026).
+
+Tambahan 17 Oktober 2026: metrik PIP/PFT/FBP tim diambil dari Team Analysis portal bila tersedia. Prioritas tampilan adalah portal valid lalu LiveStats per metrik; backfill snapshot hanya menambahkan record yang belum ada. Ini tidak mengganti statistik pemain atau dataset rinci. Perintah, pengamanan writer, serta provenance dijelaskan di [docs/INGEST.md](./docs/INGEST.md).
+
+Tambahan 16 Oktober 2026: integrasi JSON LiveStats sebagai pelengkap dan backfill pertandingan tersimpan mengikuti [docs/LIVESTATS.md](./docs/LIVESTATS.md). Ini perluasan setelah Tahap 6; identitas dan statistik dasar portal tetap dipertahankan. Hasil migrasi, uji, dan backfill nyata dicatat pada [verifikasi Neon](./docs/NEON_VERIFICATION.md).
+
 Status: checklist implementasi, diperbarui 8 Oktober 2026. Tahap 1–6 telah diverifikasi sesuai cakupannya untuk `49607` serta `49609`. Perbaikan review `0.2.2`, migrasi `0003_sync_operations`, impor/impor ulang Neon, dan status Overview lulus; jumlah record logis tetap stabil. Runner berkala belum dipasang sebagai layanan permanen. Dokumen ini menjabarkan [PLAN.md](./PLAN.md).
 
 ## Hasil akhir yang dituju
@@ -157,3 +171,50 @@ Kerjakan parser sebagai fungsi murni `HTML → record`, menggunakan Cheerio. Jan
 - [x] Tambahan 10 Oktober 2026: sediakan `--incremental` untuk sync/runner/retry, dengan fixture live, fingerprint fixture asli di Neon, pelewatan detail lama valid, prioritas laga baru/berubah/live, serta eligibility retry setelah partial/rollback. Migrasi `0004_incremental_sync`, baseline dari cache valid, dry-run dua kompetisi, dan 68 test/lint/typecheck/build lulus. Uji normal melewati 35/25 laga lama dan mempertahankan jumlah statistik.
 
 **Tahap 6 selesai dan diverifikasi di Neon.** Runner berkala belum dipasang sebagai layanan latar belakang permanen; jalankan `runner watch --incremental` untuk mengaktifkannya selama proses hidup. Lihat [status Tahap 6](./docs/SYNC_OPERATIONS.md#bukti-verifikasi-lokal-dan-neon).
+
+### Retensi lokal — 12 Oktober 2026
+
+- [x] Runner menggunakan audit `auto`: summary tanpa perubahan, delta dataset berubah, full saat gagal, dan archive eksplisit.
+- [x] Pembersihan memakai lock, menjaga dua versi valid serta review/arsip, dan membatalkan penghapusan saat referensi atau HTML aktif tidak valid.
+- [x] Pembersihan nyata setelah preview: 57 audit diringkas, 11 blob lama dihapus, penghematan bersih 515.567.222 byte. Preview ulang menghasilkan nol kandidat; 79 referensi dataset dan 23 file yang dilindungi terverifikasi.
+- [x] Seluruh 77 test, lint, typecheck, dan build lulus. Tidak membutuhkan migrasi atau penulisan Neon; lihat [panduan retensi](./docs/STORAGE_RETENTION.md).
+
+### Efisiensi Neon — 12 Oktober 2026
+
+- [x] Simpan hash input dan audit summary yang merujuk baseline full langsung, dengan FK restrict; perubahan, partial/retry, dan archive tetap full.
+- [x] Hindari penulisan ulang metadata/klasemen identik, pertahankan URL peserta lintas kompetisi, dan batasi observasi peserta menjadi harian.
+- [x] Query dashboard mempertahankan isu baseline dan membedakan waktu pemeriksaan dari waktu asli HTML.
+- [x] Terapkan migrasi `0005_massive_unicorn` setelah preflight target StatsArena; jalankan dua siklus impor putra/putri dengan input cache yang sama. Siklus kedua menghasilkan nol fetch audit baru dan nol penulisan statistik, metadata, atau klasemen. Jumlah serta fingerprint ID data tetap sama; lease tersisa nol.
+- [x] Seluruh 80 test (77 ingest, 3 dashboard), lint, typecheck, dan build lulus. Lihat [efisiensi Neon](./docs/NEON_EFFICIENCY.md).
+
+### Pembersihan audit Neon — 12 Oktober 2026
+
+- [x] Sediakan preview serta maintenance eksplisit `storage compact-neon`, dengan pemeriksaan target/FK/writer, perlindungan sumber/baseline/review/arsip, backup, dan transaksi.
+- [x] Hapus 1.741 audit fetch yang tergantikan tanpa referensi; jumlah turun 3.173 → 1.432. Perbandingan seluruh isi 14 tabel domain tetap sama; run dan isu tidak dihapus. Preview ulang menghasilkan nol kandidat.
+- [x] Tiga test maintenance, lint terarah, typecheck, dan build ingest lulus. Pembersihan ini manual, tanpa migrasi baru; lihat [aturan serta laporan](./docs/NEON_EFFICIENCY.md#pembersihan-audit-lama--12-oktober-2026).
+
+### Runner VPS/Coolify — 13 Oktober 2026
+
+- [x] Siapkan `runner service`: incremental rutin, standard harian, checkpoint/heartbeat permanen, retry siklus gagal, graceful stop, dan pemulihan lock ketika PID container dipakai ulang.
+- [x] Siapkan Dockerfile/Compose hanya untuk runner, dua volume permanen, healthcheck lokal, log rotation, serta workflow CI GitHub. Dashboard tetap di Vercel.
+- [x] Sepuluh test service/operasi, lint terarah, typecheck/build ingest, dan parsing YAML lulus.
+- [ ] Build/run image Docker dan verifikasi volume, restart, serta impor pada VPS Coolify yang dituju. Docker lokal dan konfigurasi resource belum tersedia. Tidak ada deployment permanen atau perubahan Neon pada penyiapan ini; lihat [panduan](./docs/RUNNER_DEPLOYMENT.md).
+
+### Kelengkapan dataset dan retry — 13 Oktober 2026
+
+- [x] Pisahkan hasil laga dari status summary, box score, PBP, chart, dan metrik resmi; simpan alasan serta waktu retry pada Neon dan JSON audit.
+- [x] Jelaskan field marker invalid, selisih angka sumber, dan kegagalan jaringan pada detail/Review. Pertahankan statistik valid serta histori isu.
+- [x] Terapkan backoff jaringan 5–60 menit, pemeriksaan struktur satu jam, dan anomali sumber 24 jam dalam seleksi incremental; perubahan fixture/parser dan retry manual tetap didahulukan.
+- [x] Terapkan migrasi `0006_magenta_khan` dan backfill 152 laga dari audit tersimpan. Pengulangan tidak mengubah record; fingerprint pertandingan/statistik/detail/histori isu tetap sama.
+- [x] Periksa panel dua kompetisi, Review, desktop/ponsel, dan log browser lokal. Aturan serta batas verifikasi: [DATA_QUALITY.md](./docs/DATA_QUALITY.md).
+- [x] Seluruh 93 test (90 ingest, tiga dashboard), lint, typecheck, dan build lulus.
+
+### Dukungan IBL — 16 Oktober 2026
+
+- [x] Pertahankan scope IBF/IBL pada URL, source database, query, lease, incremental, checkpoint, audit/retry, dan tautan dashboard. Input angka tetap IBF; IBL eksplisit.
+- [x] Tangani kolom 2P yang absen dengan perhitungan FG−3P dan provenance; sel resmi invalid tetap parsial. Tangani menu Summary, BP/2CP lintas tabel, GP unavailable, dan tab klasemen kosong tanpa menebak data.
+- [x] Terapkan migrasi `0007_quiet_polaris` pada target Neon terverifikasi; fingerprint seluruh isi 14 tabel domain tetap sama selain kolom baru.
+- [x] Dry-run sampel IBL `42041`: 40 fixture ditemukan, satu laga diperiksa (23 pemain, dua total tim, 601 PBP, 141 shots), tanpa fetch/parse gagal. Sepuluh tab round sumber kosong tetap parsial; bukan validasi seluruh musim.
+- [ ] Daftarkan dan impor kompetisi IBL ke Neon bila diminta; pekerjaan ini membatasi impor IBL ke PGlite untuk verifikasi.
+
+Verifikasi dukungan IBL: suite workspace 97 test lulus, ditambah regresi audit namespace baru dan penguatan redirect terarah; lint, typecheck, dan build lulus. Dry-run IBF `49607` menemukan 35 fixture, 27 tim, 322 pemain, dan 27 baris klasemen; satu sampel detail lengkap tanpa fetch/parse/partial gagal. Dashboard browser memeriksa dua kompetisi IBF dan empty state IBL tanpa mencampurkan scope.

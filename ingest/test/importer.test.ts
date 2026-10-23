@@ -1,3 +1,4 @@
+import { backfillDetailQuality } from "../src/operations/quality-backfill.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -245,12 +246,130 @@ async function count(client: PGlite, table: string): Promise<number> {
   return result.rows[0]?.count ?? 0;
 }
 
+function successfulFetch(requestUrl: string, resource: FetchResource, hash = "a".repeat(64)): FetchMetadata {
+  return { requestUrl, finalUrl: requestUrl, resource, sha256: hash, fetchStatus: "succeeded", parseStatus: "parsed",
+    httpStatus: 200, requestedAt: "2026-10-12T00:00:00Z", fetchedAt: "2026-10-10T00:00:00Z",
+    sourceFetchedAt: "2026-10-10T00:00:00Z", durationMs: 0, responseBytes: 100, snapshotPath: `${hash}.html.gz`,
+    snapshotChanged: false, attempts: [], error: null, fromSnapshot: true, retrievalMode: "cache" };
+}
+
+test("unchanged Neon imports reuse one full baseline, preserve timestamps/provenance, and skip identical registries/standings", async () => {
+  const client = new PGlite();
+  try {
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: (await import("@statsarena/db/schema")).schema }) as unknown as StatsArenaDatabase;
+    const data = realStage5Data();
+    const fetches = [successfulFetch(`${realCompetitionUrl}/match/2931666/boxscore`, "boxscore"),
+      successfulFetch(`${realCompetitionUrl}/match/2931666/playbyplay`, "playbyplay"),
+      successfulFetch(data.groups[0]!.group.sourceUrl, "standings")];
+    const first = await importCompetition(db, data, fetches);
+    assert.equal(first.status, "succeeded");
+    const tables = ["competitions", "teams", "players", "competition_teams", "competition_players", "competition_groups",
+      "group_standings", "games", "player_game_stats", "team_game_stats", "play_by_play_events", "shots", "team_official_metrics", "source_fetches", "validation_issues"];
+    const before = await Promise.all(tables.map(async table => (await client.query(`select * from statsarena.${table} order by id`)).rows));
+    const cached = fetches.map(entry => ({ ...entry, requestedAt: "2026-10-12T01:00:00Z", durationMs: 5 }));
+    const second = await importCompetition(db, data, cached);
+    assert.equal(second.counts["auditSummaryRuns"], 1);
+    assert.equal(second.counts["sourceFetchesWritten"], 0);
+    assert.equal(second.counts["reusedSourceFetches"], 3);
+    assert.equal(second.counts["metadataWrites"], 0);
+    assert.equal(second.counts["standingsWritten"], 0);
+    assert.deepEqual(await Promise.all(tables.map(async table => (await client.query(`select * from statsarena.${table} order by id`)).rows)), before);
+    const summary = (await client.query<{ audit_kind: string; baseline_import_run_id: string; latest_source_fetched_at: Date; latest_requested_at: Date }>(
+      "select audit_kind,baseline_import_run_id,latest_source_fetched_at,latest_requested_at from statsarena.import_runs where id=$1", [second.importRunId])).rows[0];
+    assert.equal(summary?.audit_kind, "summary");
+    assert.equal(summary?.baseline_import_run_id, first.importRunId);
+    assert.equal(summary?.latest_requested_at.toISOString(), "2026-10-12T01:00:00.000Z");
+    assert.equal(summary?.latest_source_fetched_at.toISOString(), "2026-10-10T00:00:00.000Z");
+    const third = await importCompetition(db, data, cached);
+    assert.equal(third.counts["auditSummaryRuns"], 1);
+    assert.equal((await client.query<{ baseline_import_run_id: string }>("select baseline_import_run_id from statsarena.import_runs where id=$1", [third.importRunId])).rows[0]?.baseline_import_run_id, first.importRunId);
+    await assert.rejects(client.query("delete from statsarena.import_runs where id=$1", [first.importRunId]), /foreign key/);
+    await client.exec("update statsarena.competitions set last_seen_at='2020-01-01'; update statsarena.competition_teams set last_seen_at='2020-01-01'; update statsarena.competition_players set last_seen_at='2020-01-01'");
+    const daily = await importCompetition(db, data, cached);
+    assert.equal(daily.counts["auditSummaryRuns"], 1);
+    assert.ok((daily.counts["observationWrites"] ?? 0) > 0);
+    assert.equal((await importCompetition(db, data, cached)).counts["observationWrites"], 0);
+
+    const renamed = structuredClone(data);
+    const roster = new Set(renamed.matches[0]?.boxScore?.players.map(player => player.playerSourceId));
+    const player = renamed.players.find(player => !roster.has(player.sourceId)); assert.ok(player);
+    player.name += " Corrected";
+    const changed = await importCompetition(db, renamed, cached);
+    assert.equal(changed.counts["auditSummaryRuns"], 0);
+    assert.equal(changed.counts["metadataWrites"], 1);
+    assert.equal(changed.counts["standingsWritten"], 0);
+    assert.deepEqual((await client.query("select * from statsarena.group_standings order by id")).rows, before[tables.indexOf("group_standings")]);
+    const ranking = structuredClone(renamed); const standing = ranking.groups[0]?.rows[0]; assert.ok(standing);
+    standing.standingPoints = (standing.standingPoints ?? 0) + 1;
+    const corrected = await importCompetition(db, ranking, cached);
+    assert.equal(corrected.counts["standingsWritten"], 3);
+    assert.equal(corrected.counts["metadataWrites"], 0);
+    const htmlChanged = cached.map(entry => ({ ...entry, sha256: "b".repeat(64) }));
+    assert.equal((await importCompetition(db, ranking, htmlChanged)).counts["auditSummaryRuns"], 0);
+    assert.equal((await importCompetition(db, ranking, htmlChanged, "sync", undefined, { forceFullAudit: true })).counts["auditSummaryRuns"], 0);
+  } finally { await client.close(); }
+});
+
+test("audit summary never suppresses partial input, retry diagnostics, parser upgrades, rollback, or restoring an earlier value", async () => {
+  const client = new PGlite();
+  try {
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: (await import("@statsarena/db/schema")).schema }) as unknown as StatsArenaDatabase;
+    const data = sampleData(); const fetches = [successfulFetch(`${competitionUrl}/match/${gameId}/boxscore`, "boxscore")];
+    await importCompetition(db, data, fetches);
+    const changed = sampleData({ name: "Changed Cup" });
+    await importCompetition(db, changed, fetches);
+    assert.equal((await importCompetition(db, data, fetches)).counts["auditSummaryRuns"], 0);
+    const invalid = [{ ...fetches[0]!, parseStatus: "partial" as const }];
+    const partial = await importCompetition(db, data, invalid);
+    assert.equal(partial.counts["auditSummaryRuns"], 0);
+    const retry = [{ ...fetches[0]!, attempts: [{ attempt: 1, requestedAt: fetches[0]!.requestedAt, finishedAt: fetches[0]!.requestedAt,
+      finalUrl: null, httpStatus: 503, durationMs: 20, responseBytes: null, sha256: null, error: "Temporary error" }] }];
+    const retried = await importCompetition(db, data, retry);
+    assert.equal(retried.counts["auditSummaryRuns"], 0);
+    await client.query("update statsarena.import_runs set parser_version='old-parser' where id=$1", [retried.importRunId]);
+    assert.equal((await importCompetition(db, data, fetches)).counts["auditSummaryRuns"], 0);
+    let guards = 0;
+    await assert.rejects(importCompetition(db, data, fetches, "sync", async () => {
+      if (++guards === 2) throw new Error("Summary transaction failed");
+    }), /Summary transaction failed/);
+    const restored = await importCompetition(db, data, fetches);
+    assert.equal(restored.counts["auditSummaryRuns"], 0);
+    assert.equal(restored.status, "succeeded");
+    assert.equal((await importCompetition(db, data, fetches)).counts["auditSummaryRuns"], 1);
+  } finally { await client.close(); }
+});
+
+test("shared teams and players retain stable global URLs and exact competition membership URLs", async () => {
+  const client = new PGlite();
+  try {
+    await applyMigrations(client);
+    const db = drizzle(client, { schema: (await import("@statsarena/db/schema")).schema }) as unknown as StatsArenaDatabase;
+    const first = sampleData(); first.matches = [];
+    await importCompetition(db, first, []);
+    const before = (await client.query("select id,source_url,updated_at from statsarena.teams order by id")).rows;
+    const playerBefore = (await client.query("select id,source_url,updated_at from statsarena.players order by id")).rows;
+    const second = structuredClone(first);
+    second.competition.sourceId = "70002";
+    second.competition.sourceUrl = competitionUrl.replace("70001", "70002");
+    for (const team of second.teams) team.sourceUrl = team.sourceUrl.replace("70001", "70002");
+    for (const player of second.players) player.sourceUrl = player.sourceUrl.replace("70001", "70002");
+    const imported = await importCompetition(db, second, []);
+    assert.equal(imported.counts["metadataWrites"], 0);
+    assert.deepEqual((await client.query("select id,source_url,updated_at from statsarena.teams order by id")).rows, before);
+    assert.deepEqual((await client.query("select id,source_url,updated_at from statsarena.players order by id")).rows, playerBefore);
+    const memberships = await client.query<{ source_url: string }>("select source_url from statsarena.competition_teams where competition_id=$1", [imported.competitionId]);
+    assert.ok(memberships.rows.every(row => row.source_url.includes("/competition/70002/")));
+  } finally { await client.close(); }
+});
+
 test("importer writes real 49607 identities, standings, and box score idempotently", async () => {
   const client = new PGlite();
   try {
     await applyMigrations(client);
     await applyMigrations(client);
-    assert.equal(await count(client, "__drizzle_migrations"), 5);
+    assert.equal(await count(client, "__drizzle_migrations"), 9);
     const pgliteDb = drizzle(client, { schema: (await import("@statsarena/db/schema")).schema });
     const db = pgliteDb as unknown as StatsArenaDatabase;
     const data = realCompetitionData();
@@ -290,11 +409,11 @@ test("Stage 5 detail imports are idempotent, replace corrected data, preserve pa
     assert.deepEqual(first.failedGames, [], JSON.stringify(first.issues));
     assert.equal(first.counts["playByPlayEvents"], 548);
     assert.equal(first.counts["shots"], 81);
-    assert.equal(first.counts["gameOfficialMetrics"], 4);
+    assert.equal(first.counts["gameOfficialMetrics"], 10);
     assert.equal(first.counts["competitionOfficialMetrics"], 54);
     assert.equal(await count(client, "play_by_play_events"), 548);
     assert.equal(await count(client, "shots"), 81);
-    assert.equal(await count(client, "team_official_metrics"), 58);
+    assert.equal(await count(client, "team_official_metrics"), 64);
 
     const repeated = await importCompetition(db, data, [], "sync");
     assert.equal(repeated.counts["playByPlayEvents"], 0);
@@ -305,7 +424,7 @@ test("Stage 5 detail imports are idempotent, replace corrected data, preserve pa
     assert.equal(repeated.counts["unchangedShotCharts"], 1);
     assert.equal(await count(client, "play_by_play_events"), 548);
     assert.equal(await count(client, "shots"), 81);
-    assert.equal(await count(client, "team_official_metrics"), 58);
+    assert.equal(await count(client, "team_official_metrics"), 64);
 
     const corrected = structuredClone(data);
     const correctedEvent = corrected.matches[0]?.playByPlay?.records[3];
@@ -416,7 +535,7 @@ test("Stage 5 HTML data loss preserves stored datasets and reports partial fetch
     assert.ok(metric);
     metric.value = null; metric.availability = "unavailable"; metric.rawValue = "—";
     const withdrawn = await importCompetition(db, explicit, [], "sync");
-    assert.equal(withdrawn.counts["gameOfficialMetrics"], 4);
+    assert.equal(withdrawn.counts["gameOfficialMetrics"], 10);
     assert.equal(withdrawn.counts["preservedDetailDatasets"], 0);
   } finally { await client.close(); }
 });
@@ -471,11 +590,11 @@ test("Stage 5 details import for 49609 without borrowing 49607 identities or agg
     assert.deepEqual(first.failedGames, [], JSON.stringify(first.issues));
     assert.equal(first.counts["playByPlayEvents"], 466);
     assert.equal(first.counts["shots"], 57);
-    assert.equal(first.counts["gameOfficialMetrics"], 4);
+    assert.equal(first.counts["gameOfficialMetrics"], 10);
     assert.equal(first.counts["competitionOfficialMetrics"], 36);
     assert.equal(await count(client, "play_by_play_events"), 466);
     assert.equal(await count(client, "shots"), 57);
-    assert.equal(await count(client, "team_official_metrics"), 40);
+    assert.equal(await count(client, "team_official_metrics"), 46);
     assert.equal(await count(client, "competitions"), 1);
     const replay = await importCompetition(db, data, [], "sync");
     assert.equal(replay.counts["playByPlayEvents"], 0);
@@ -486,7 +605,7 @@ test("Stage 5 details import for 49609 without borrowing 49607 identities or agg
     assert.equal(replay.counts["unchangedShotCharts"], 1);
     assert.equal(await count(client, "play_by_play_events"), 466);
     assert.equal(await count(client, "shots"), 57);
-    assert.equal(await count(client, "team_official_metrics"), 40);
+    assert.equal(await count(client, "team_official_metrics"), 46);
     const shorter = structuredClone(data);
     const chart = shorter.matches[0]?.shotChart;
     assert.ok(chart);
@@ -603,6 +722,9 @@ test("duration migration recovers seconds from existing raw text and keeps unkno
     // Current importer needs incremental metadata; retain the legacy integer
     // duration columns until the precision migration below is applied.
     await applyMigration(client, "0004_incremental_sync");
+    await applyMigration(client, "0005_massive_unicorn");
+    await applyMigration(client, "0006_magenta_khan");
+    await applyMigration(client, "0007_quiet_polaris");
     const db = drizzle(client) as unknown as StatsArenaDatabase;
     const legacy = sampleData();
     const legacyPlayers = legacy.matches[0]?.boxScore?.players;
@@ -843,5 +965,57 @@ test("a suspected PBP reduction selects only its source page for an uncached ver
     const confirmed = await importCompetition(db, shorter, []);
     assert.ok(confirmed.issues.some((entry) => entry.code === "PBP_EVENTS_SHRANK"));
     assert.equal(await count(client, "play_by_play_events"), 2);
+  } finally { await client.close(); }
+});
+
+test("dataset quality persists separately, preserves shots on mismatch, and clears retry metadata on rollback", async () => {
+  const client = new PGlite();
+  try {
+    await applyMigrations(client);
+    const tables = await import("@statsarena/db/schema");
+    const db = drizzle(client, { schema: tables.schema }) as unknown as StatsArenaDatabase;
+    const data = realStage5Data();
+    const detailFetches = (["summary", "boxscore", "playbyplay", "shotchart", "analysis"] as const).map((resource) => successfulFetch(`${realCompetitionUrl}/match/2931666/${resource}`, resource));
+    const first = await importCompetition(db, data, detailFetches, "sync");
+    assert.deepEqual(first.failedGames, []);
+    const before = await client.query("select id from statsarena.shots order by id");
+    const changed = structuredClone(data);
+    assert.ok(changed.matches[0]?.shotChart);
+    changed.matches[0].shotChart.records.pop();
+    const result = await importCompetition(db, changed, detailFetches, "sync");
+    assert.deepEqual(result.failedGames, []);
+    const [saved] = await db.select().from(tables.games);
+    assert.ok(saved?.detailQuality);
+    assert.equal(saved.detailSyncStatus, "partial");
+    assert.equal(saved.detailQuality.boxScore.status, "parsed");
+    assert.equal(saved.detailQuality.playByPlay.status, "parsed");
+    assert.equal(saved.detailQuality.shotChart.status, "partial");
+    assert.equal(saved.detailQuality.shotChart.category, "source_inconsistent");
+    assert.ok(saved.detailQuality.shotChart.issues.some((issue) => issue.code === "SHOT_FGA_MISMATCH"));
+    assert.deepEqual((await client.query("select id from statsarena.shots order by id")).rows, before.rows);
+    assert.deepEqual(changed.matches[0].datasetQuality, saved.detailQuality);
+    await db.update(tables.games).set({ detailQuality: null });
+    assert.deepEqual(await backfillDetailQuality(db, true), { games: 1, updated: 0 });
+    assert.equal((await db.select().from(tables.games))[0]?.detailQuality, null);
+    assert.deepEqual(await backfillDetailQuality(db, false), { games: 1, updated: 1 });
+    const rebuilt = (await db.select().from(tables.games))[0]?.detailQuality;
+    assert.equal(rebuilt?.boxScore.status, "parsed");
+    assert.equal(rebuilt?.shotChart.category, "source_inconsistent");
+    assert.ok(rebuilt?.shotChart.issues.some((entry) => entry.code === "SHOT_FGA_MISMATCH"));
+    assert.deepEqual(await backfillDetailQuality(db, false), { games: 0, updated: 0 });
+    await db.insert(tables.syncLeases).values({ sourceCompetitionId: "49607", ownerId: "00000000-0000-4000-8000-000000000001", hostname: "test", processId: 1, expiresAt: new Date(Date.now() + 60000) });
+    await assert.rejects(backfillDetailQuality(db, false), /Writer aktif/);
+    await db.delete(tables.syncLeases);
+    // A transaction failure must remain eligible, regardless of the preceding anomaly cooldown.
+    const bad = structuredClone(data);
+    assert.ok(bad.matches[0]?.boxScore?.players[0]);
+    await client.exec("alter table statsarena.player_game_stats add constraint quality_test_minutes_check check (minutes < 100)");
+    bad.matches[0].boxScore.players[0].minutes = 1000;
+    const rolledBack = await importCompetition(db, bad, [], "sync");
+    assert.equal(rolledBack.failedGames.length, 1);
+    const [failed] = await db.select().from(tables.games);
+    assert.equal(failed?.detailSyncStatus, "failed");
+    assert.equal(failed?.detailQuality, null);
+    assert.deepEqual((await client.query("select id from statsarena.shots order by id")).rows, before.rows);
   } finally { await client.close(); }
 });

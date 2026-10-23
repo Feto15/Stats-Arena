@@ -61,6 +61,11 @@ test("fetcher rejects a redirect to any host outside the source site", async () 
       assert.match(error.message, /URL harus memakai HTTPS pada hosted\.dcd\.shared\.geniussports\.com/);
       return true;
     });
+    const crossNamespace = new HtmlFetcher({
+      snapshotStore: new SnapshotStore(directory), retries: 0,
+      fetchImpl: async () => new Response(null, { status: 302, headers: { location: competitionUrl.replace("/IBF/", "/IBL/") } })
+    });
+    await assert.rejects(crossNamespace.fetchPage(competitionUrl), /Redirect berbeda namespace sumber/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

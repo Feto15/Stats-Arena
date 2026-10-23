@@ -1,0 +1,70 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import { migrate } from "drizzle-orm/pglite/migrator";
+import type { StatsArenaDatabase } from "@statsarena/db";
+import * as schema from "@statsarena/db/schema";
+import { SnapshotStore } from "../src/fetch/snapshots.js";
+import { parseTeamAnalysisHtml } from "../src/parsers/official-metrics.js";
+import { backfillPortalMetrics } from "../src/operations/portal-metrics-backfill.js";
+import { acquireSyncLease } from "../src/operations/lease.js";
+import { loadStage5HtmlFixture } from "./fixtures.js";
+
+test("portal metric backfill uses proven snapshots, adds only missing game metrics and records conflicts atomically", async () => {
+  const client = new PGlite(); const directory = await mkdtemp(join(tmpdir(), "portal-metrics-"));
+  try {
+    await migrate(drizzle(client), { migrationsFolder: fileURLToPath(new URL("../../packages/db/drizzle", import.meta.url)), migrationsSchema: "statsarena", migrationsTable: "__drizzle_migrations" });
+    const db = drizzle(client, { schema: schema.schema }) as unknown as StatsArenaDatabase;
+    const url = "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49607/match/2931666/analysis";
+    const html = loadStage5HtmlFixture("49607-2931666-analysis.html.gz");
+    const parsed = parseTeamAnalysisHtml(html, url);
+    const store = new SnapshotStore(directory);
+    const snapshot = await store.write(url, html, { fetchedAt: "2026-10-08T00:00:00Z", httpStatus: 200, responseBytes: Buffer.byteLength(html), etag: null, lastModified: null });
+    const [competition] = await db.insert(schema.competitions).values({ sourceCompetitionId: "49607", sourceUrl: url.split("/match/")[0]!, name: "Jogja" }).returning();
+    const ids = new Map<string, string>();
+    for (const m of parsed.records.filter(m => m.metricCode === "2CP")) {
+      const [team] = await db.insert(schema.teams).values({ sourceTeamId: m.teamSourceId, name: m.teamName, sourceUrl: `https://hosted.dcd.shared.geniussports.com/IBF/en/team/${m.teamSourceId}` }).returning(); ids.set(m.teamSourceId, team!.id);
+    }
+    const [home, away] = [...ids.values()];
+    const [game] = await db.insert(schema.games).values({ competitionId: competition!.id, sourceGameId: "2931666", sourceUrl: url.replace("analysis", "summary"), homeTeamId: home!, awayTeamId: away!, homeScore: 25, awayScore: 45, status: "complete" }).returning();
+    const [fetch] = await db.insert(schema.sourceFetches).values({ competitionId: competition!.id, resource: "analysis", requestUrl: url, fetchStatus: "succeeded", parseStatus: "parsed", requestedAt: new Date(), sha256: snapshot.sha256, snapshotPath: snapshot.path }).returning();
+    await db.insert(schema.officialTeamMetrics).values(parsed.records.filter(m => ["BP", "2CP"].includes(m.metricCode)).map(m => ({ competitionId: competition!.id, gameId: game!.id, scopeType: "game" as const, teamId: ids.get(m.teamSourceId)!, metricCode: m.metricCode, value: m.value, availability: m.availability, unit: "points", rawValue: m.rawValue, sourceUrl: url, sourceFetchId: fetch!.id, parserVersion: "old" })));
+    const payload = { players: [], teams: [{ teamId: home!, localTeamKey: "1", benchPoints: 3, secondChancePoints: 4, pointsInPaint: 999, pointsFromTurnovers: 13, fastBreakPoints: 5, biggestLead: 0, biggestScoringRun: 5 }] };
+    await db.insert(schema.gameLiveStats).values({ gameId: game!.id, status: "ready", payload, parserVersion: "old", portalFingerprint: "a".repeat(64), sourceUrl: "https://fibalivestats.dcd.shared.geniussports.com/data/2931666/data.json", pageUrl: "https://fibalivestats.dcd.shared.geniussports.com/u/IBF/2931666/bs.html", lastAttemptAt: new Date(), nextAttemptAt: new Date() });
+    const beforeGames = await db.select().from(schema.games);
+    const beforeMetrics = await db.select().from(schema.officialTeamMetrics);
+    const dry = await backfillPortalMetrics(db, store);
+    assert.equal(dry.metricsAdded, 6); assert.equal(dry.written, 0); assert.equal(dry.issueUpdates.length, 1);
+    assert.deepEqual(await db.select().from(schema.officialTeamMetrics), beforeMetrics);
+    const lease = await acquireSyncLease(db, "49607");
+    await assert.rejects(backfillPortalMetrics(db, store, false), /Writer aktif/); await lease.release();
+    const [recentImport] = await db.insert(schema.importRuns).values({ competitionId: competition!.id, mode: "sync", status: "running", parserVersion: "test" }).returning();
+    await assert.rejects(backfillPortalMetrics(db, store, false), /Writer aktif/);
+    await client.query("update statsarena.import_runs set started_at = now() - interval '10 days' where id=$1", [recentImport!.id]);
+    await client.exec(`create function statsarena.reject_portal_metric() returns trigger language plpgsql as $$ begin if new.metric_code = 'PFT' then raise exception 'test rollback'; end if; return new; end $$; create trigger reject_portal_metric before insert on statsarena.team_official_metrics for each row execute function statsarena.reject_portal_metric();`);
+    await assert.rejects(backfillPortalMetrics(db, store, false));
+    assert.deepEqual(await db.select().from(schema.officialTeamMetrics), beforeMetrics);
+    assert.equal((await db.select().from(schema.gameLiveStats))[0]!.status, "ready");
+    await client.exec("drop trigger reject_portal_metric on statsarena.team_official_metrics");
+    const result = await backfillPortalMetrics(db, store, false);
+    assert.equal(result.written, 6);
+    const all = await db.select().from(schema.officialTeamMetrics);
+    assert.equal(all.length, 10); assert.ok(all.filter(m => m.metricCode === "PIP").every(m => m.sourceFetchId === fetch!.id));
+    const extra = (await db.select().from(schema.gameLiveStats))[0]!;
+    assert.equal(extra.status, "partial"); assert.deepEqual(extra.payload, payload);
+    assert.equal(extra.issues[0]!.code, "LIVESTATS_OFFICIAL_METRIC_CONFLICT");
+    assert.equal(extra.issues[0]!.expected, 16); assert.equal(extra.issues[0]!.actual, 999);
+    const repeat = await backfillPortalMetrics(db, store, false);
+    assert.equal(repeat.written, 0); assert.equal(repeat.issueUpdates.length, 0);
+    assert.deepEqual(await db.select().from(schema.officialTeamMetrics), all);
+    assert.deepEqual(await db.select().from(schema.games), beforeGames);
+    await store.write(url, `${html}\n`, { fetchedAt: new Date().toISOString(), httpStatus: 200, responseBytes: html.length + 1, etag: null, lastModified: null });
+    const stale = await backfillPortalMetrics(db, new SnapshotStore(directory));
+    assert.equal(stale.observations[0]!.status, "skipped"); assert.match(stale.observations[0]!.reason!, /observasi Neon/);
+  } finally { await client.close(); await rm(directory, { recursive: true, force: true }); }
+});

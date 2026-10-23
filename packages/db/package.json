@@ -2,11 +2,18 @@
   "name": "@statsarena/db",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.19.0" },
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./env": "./src/environment.ts"
+    "./env": "./src/environment.ts",
+    "./data-quality": "./src/data-quality.ts",
+    "./source": "./src/source.ts",
+    "./livestats": "./src/livestats.ts",
+    "./analytics": "./src/analytics.ts",
+    "./analytics-sql": "./src/analytics-sql.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

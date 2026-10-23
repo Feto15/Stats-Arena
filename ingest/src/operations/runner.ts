@@ -1,22 +1,27 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { hostname } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 import { and, count, desc, eq, inArray } from "drizzle-orm";
 import type { StatsArenaDatabase } from "@statsarena/db";
 import { createDatabase } from "@statsarena/db";
 import { competitions, games, playByPlayEvents, syncRuns } from "@statsarena/db/schema";
-import { competitionUrl, sourceEntityId } from "../domain/source-url.js";
+import { competitionUrl, sourceEntityId, competitionReference, sameCompetition } from "../domain/source-url.js";
 import { HtmlFetcher, type FetchMetadata } from "../fetch/fetcher.js";
 import { SnapshotStore } from "../fetch/snapshots.js";
 import { importCompetition, type ImportSummary } from "../import/importer.js";
 import { fetchCounts, PipelineError, syncCompetition, type PipelineResult } from "../pipeline.js";
-import { PARSER_VERSION, SOURCE_NAME, type ValidationIssue } from "../domain/types.js";
+import { PARSER_VERSION, type ValidationIssue } from "../domain/types.js";
 import { acquireDirectoryLock, competitionLockPath, snapshotLockPath, type DirectoryLock } from "./locks.js";
 import { acquireSyncLease, type SyncLease } from "./lease.js";
 import { FixturePageCheckpoint } from "./fixture-checkpoint.js";
 import { safeError, SyncOperationError } from "./errors.js";
+import { compactStorage, writeOperationAudit, type AuditPolicy, type AuditWriteResult, type MaintenanceResult } from "./audit-storage.js";
 import type { SavedGameSyncState } from "../domain/incremental.js";
+import { syncLiveStatsCompetition, LiveStatsSyncError, type LiveStatsSyncResult } from "../livestats/sync.js";
+import { join } from "node:path";
+import { updateCompetitionCatalog, type CatalogOptions } from "./competition-catalog.js";
+import { exportAnalysis } from "../analytics/export.js";
 
 export type OperationalMode = "once" | "periodic" | "retry";
 
@@ -25,6 +30,7 @@ export interface SyncOperationOptions {
   snapshotDirectory: string;
   lockRoot: string;
   auditPath: (sourceCompetitionId: string) => string;
+  auditPolicy?: AuditPolicy;
   snapshotOnly?: boolean;
   matchLimit?: number;
   forceRefresh?: boolean;
@@ -35,6 +41,9 @@ export interface SyncOperationOptions {
   nextRunAt?: Date | null;
   fetcher?: HtmlFetcher;
   db?: StatsArenaDatabase;
+  includeLiveStats?: boolean;
+  catalog?: CatalogOptions;
+  onPhase?: (phase: string, elapsedMs: number) => void;
 }
 
 export interface SyncOperationResult {
@@ -44,7 +53,12 @@ export interface SyncOperationResult {
   imported: ImportSummary | null;
   operationRunId: string | null;
   refreshedShrinkingPlayByPlayUrls: string[];
+  audit: AuditWriteResult;
+  maintenance: MaintenanceResult | null;
   elapsedMs: number;
+  liveStats: LiveStatsSyncResult | null;
+  timings: Record<string, number>;
+  analysis: Awaited<ReturnType<typeof exportAnalysis>> | null;
 }
 
 const HEARTBEAT_MS = 20_000;
@@ -63,7 +77,7 @@ export async function findShrinkingPlayByPlayRefreshUrls(db: StatsArenaDatabase,
   if (!incoming.length) return [];
   const [competition] = await db.select({ id: competitions.id })
     .from(competitions)
-    .where(and(eq(competitions.source, SOURCE_NAME), eq(competitions.sourceCompetitionId, sourceCompetitionId)))
+    .where(and(eq(competitions.source, competitionReference(sourceCompetitionId).source), eq(competitions.sourceCompetitionId, competitionReference(sourceCompetitionId).id)))
     .limit(1);
   if (!competition) return [];
   const sourceIds = incoming.map((match) => match.fixture.sourceId);
@@ -86,12 +100,12 @@ async function startOperationRow(
   nextRunAt: Date | null
 ): Promise<string> {
   const [knownCompetition] = await db.select({ id: competitions.id }).from(competitions)
-    .where(and(eq(competitions.source, SOURCE_NAME), eq(competitions.sourceCompetitionId, sourceCompetitionId)))
+    .where(and(eq(competitions.source, competitionReference(sourceCompetitionId).source), eq(competitions.sourceCompetitionId, competitionReference(sourceCompetitionId).id)))
     .limit(1);
   const [run] = await db.insert(syncRuns).values({
     competitionId: knownCompetition?.id ?? null,
-    source: SOURCE_NAME,
-    sourceCompetitionId,
+    source: competitionReference(sourceCompetitionId).source,
+    sourceCompetitionId: competitionReference(sourceCompetitionId).id,
     ownerId,
     hostname: hostname(),
     processId: process.pid,
@@ -114,7 +128,7 @@ async function updateOperationRow(
 
 async function savedGameIds(db: StatsArenaDatabase, sourceCompetitionId: string): Promise<Set<string>> {
   const [competition] = await db.select({ id: competitions.id }).from(competitions)
-    .where(and(eq(competitions.source, SOURCE_NAME), eq(competitions.sourceCompetitionId, sourceCompetitionId)))
+    .where(and(eq(competitions.source, competitionReference(sourceCompetitionId).source), eq(competitions.sourceCompetitionId, competitionReference(sourceCompetitionId).id)))
     .limit(1);
   if (!competition) return new Set();
   const rows = await db.select({ sourceGameId: games.sourceGameId }).from(games)
@@ -124,19 +138,19 @@ async function savedGameIds(db: StatsArenaDatabase, sourceCompetitionId: string)
 
 export async function readIncrementalGames(db: StatsArenaDatabase, sourceCompetitionId: string): Promise<Map<string, SavedGameSyncState>> {
   const [competition] = await db.select({ id: competitions.id }).from(competitions)
-    .where(and(eq(competitions.source, SOURCE_NAME), eq(competitions.sourceCompetitionId, sourceCompetitionId))).limit(1);
+    .where(and(eq(competitions.source, competitionReference(sourceCompetitionId).source), eq(competitions.sourceCompetitionId, competitionReference(sourceCompetitionId).id))).limit(1);
   if (!competition) return new Map();
   const [rows, lastRuns] = await Promise.all([
     db.select({ sourceId: games.sourceGameId, fixtureHash: games.fixtureHash, detailSyncStatus: games.detailSyncStatus,
-      detailParserVersion: games.detailParserVersion, detailSyncedAt: games.detailSyncedAt }).from(games)
+      detailParserVersion: games.detailParserVersion, detailSyncedAt: games.detailSyncedAt, detailQuality: games.detailQuality }).from(games)
       .where(eq(games.competitionId, competition.id)),
     db.select({ failureUrls: syncRuns.failureUrls }).from(syncRuns)
-      .where(and(eq(syncRuns.competitionId, competition.id), eq(syncRuns.source, SOURCE_NAME)))
+      .where(and(eq(syncRuns.competitionId, competition.id), eq(syncRuns.source, competitionReference(sourceCompetitionId).source)))
       .orderBy(desc(syncRuns.startedAt)).limit(1)
   ]);
   const retryIds = new Set((lastRuns[0]?.failureUrls ?? []).flatMap((url) => {
     const id = sourceEntityId(url, "match");
-    return sourceEntityId(url, "competition") === sourceCompetitionId && id ? [id] : [];
+    return sameCompetition(url, sourceCompetitionId) && id ? [id] : [];
   }));
   return new Map(rows.map((row) => [row.sourceId, { ...row, needsRetry: retryIds.has(row.sourceId) }]));
 }
@@ -157,9 +171,20 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
     throw new Error("--incremental tidak dapat digabung dengan --refresh atau --snapshot-only.");
   }
   const startedAt = Date.now();
+  const timings: Record<string, number> = {};
+  async function measure<T>(phase: string, work: () => Promise<T>): Promise<T> {
+    const start = Date.now();
+    try { return await work(); }
+    finally {
+      const elapsed = Date.now() - start;
+      timings[phase] = (timings[phase] ?? 0) + elapsed;
+      options.onPhase?.(phase, elapsed);
+    }
+  }
   const sourceUrl = competitionUrl(options.input).href;
-  const sourceCompetitionId = sourceEntityId(sourceUrl, "competition");
+  const sourceCompetitionId = competitionReference(sourceUrl).key;
   if (!sourceCompetitionId) throw new Error(`ID kompetisi tidak dapat ditentukan dari ${sourceUrl}.`);
+  const operationAuditPath = options.auditPath(sourceCompetitionId);
   const ownerId = randomUUID();
   const locks: DirectoryLock[] = [];
   const shouldImport = !options.dryRun && !options.snapshotOnly;
@@ -174,6 +199,18 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
   let imported: ImportSummary | null = null;
   let refreshedShrinkingPlayByPlayUrls: string[] = [];
   let finished = false;
+  let liveStats: LiveStatsSyncResult | null = null;
+  let analysis: Awaited<ReturnType<typeof exportAnalysis>> | null = null;
+
+  async function indexAudit(): Promise<void> {
+    const catalog = options.catalog;
+    if (!catalog) return;
+    try { await measure("catalogMs", () => updateCompetitionCatalog(catalog, operationAuditPath)); }
+    catch (error) {
+      // A derived local index must not relabel a committed import as failed.
+      process.stderr.write(`Katalog kompetisi belum diperbarui; jalankan catalog rebuild: ${safeError(error)}\n`);
+    }
+  }
 
   try {
     await mkdir(options.snapshotDirectory, { recursive: true });
@@ -209,9 +246,11 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
     }
 
     const existingGameIds = db && shouldImport ? await savedGameIds(db, sourceCompetitionId) : undefined;
+    timings["setupMs"] = Date.now() - startedAt;
+    options.onPhase?.("setupMs", timings["setupMs"]);
 
     const fetcher = options.fetcher ?? new HtmlFetcher({ snapshotStore: new SnapshotStore(options.snapshotDirectory) });
-    pipeline = await syncCompetition(sourceUrl, {
+    pipeline = await measure("pipelineMs", () => syncCompetition(sourceUrl, {
       fetcher,
       ...(existingGameIds ? { existingGameIds } : {}),
       ...(incrementalGames ? { incrementalGames } : {}),
@@ -221,7 +260,7 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
       ...(options.forceRefreshUrls ? { forceRefreshUrls: options.forceRefreshUrls } : {}),
       ...(options.matchLimit !== undefined ? { matchLimit: options.matchLimit } : {}),
       includeMatches: true
-    });
+    }));
 
     if (db && shouldImport) {
       const shrinkingPbp = await findShrinkingPlayByPlayRefreshUrls(db, sourceCompetitionId, pipeline);
@@ -229,7 +268,7 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
       refreshedShrinkingPlayByPlayUrls = shrinkingPbp.filter((url) => !options.forceRefresh && !requestedRefreshes.has(url));
       if (refreshedShrinkingPlayByPlayUrls.length) {
         const forced = new Set([...requestedRefreshes, ...refreshedShrinkingPlayByPlayUrls]);
-        const refreshed = await syncCompetition(sourceUrl, {
+        const refreshed = await measure("pipelineMs", () => syncCompetition(sourceUrl, {
           fetcher,
           ...(existingGameIds ? { existingGameIds } : {}),
           ...(incrementalGames ? { incrementalGames } : {}),
@@ -237,7 +276,7 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
           forceRefreshUrls: forced,
           ...(options.matchLimit !== undefined ? { matchLimit: options.matchLimit } : {}),
           includeMatches: true
-        });
+        }));
         const allFetches = [...pipeline.fetches, ...refreshed.fetches];
         pipeline = {
           ...refreshed,
@@ -260,10 +299,20 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
       if (heartbeatError) throw heartbeatError;
       await activeLease.assertOwned();
       for (const lock of locks) await lock.assertOwned();
-      imported = await importCompetition(db, pipeline.data, pipeline.fetches, "sync", async (transaction) => {
+      const importDb = db;
+      const importPipeline = pipeline;
+      imported = await measure("portalImportMs", () => importCompetition(importDb, importPipeline.data, importPipeline.fetches, "sync", async (transaction) => {
         if (transaction) await activeLease.guardTransaction(transaction);
         else await activeLease.assertOwned();
-      });
+      }, { forceFullAudit: options.auditPolicy === "archive" }));
+      if (options.includeLiveStats) {
+        liveStats = await measure("liveStatsMs", () => syncLiveStatsCompetition(importDb, sourceUrl, join(options.snapshotDirectory, "livestats"), {
+          ...(options.catalog ? { catalog: options.catalog } : {}),
+          forceRefresh: options.forceRefresh ?? false,
+          ...(options.matchLimit !== undefined ? { matchLimit: options.matchLimit } : {}),
+          guard: async tx => { if (heartbeatError) throw heartbeatError; if (tx) await activeLease.guardTransaction(tx); else await activeLease.assertOwned(); }
+        }));
+      }
       await activeLease.assertOwned();
       const persistedUrls = [...new Set([...failureUrls, ...failedOrPartialUrls([], imported.issues)])];
       await updateOperationRow(db, operationRunId, ownerId, {
@@ -275,32 +324,64 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
         pageCount: pipeline.fetches.length,
         failureCount: persistedUrls.length,
         failureUrls: persistedUrls,
-        writeCounts: { ...imported.counts },
-        resultSummary: `${imported.status}; ${imported.counts["newGames"] ?? 0} pertandingan baru, ${imported.counts["updatedGames"] ?? 0} diperbarui.`
+        writeCounts: { ...imported.counts, liveStatsWritten: liveStats?.written ?? 0, liveStatsReady: liveStats?.statuses.ready ?? 0 },
+        resultSummary: `${imported.status}; ${imported.counts["newGames"] ?? 0} pertandingan baru, ${imported.counts["updatedGames"] ?? 0} diperbarui. LiveStats: ${JSON.stringify(liveStats?.statuses ?? {})}`
       });
       finished = true;
     }
 
-    await writeAuditSafely(options.auditPath(sourceCompetitionId), {
+    const auditPipeline = pipeline;
+    const auditCreatedAt = new Date().toISOString();
+    const audit = await measure("auditMs", () => writeOperationAudit(operationAuditPath, {
       mode: options.dryRun ? "dry-run" : options.snapshotOnly ? "snapshot" : options.mode ?? "once",
       strategy: options.incremental ? "incremental" : "standard",
       sourceUrl,
       sourceCompetitionId,
       parserVersion: PARSER_VERSION,
-      createdAt: new Date().toISOString(),
-      parseCounts: pipeline.parseCounts,
-      pendingFixturePageUrls: pipeline.pendingFixturePageUrls ?? [],
-      fetches: pipeline.fetches,
-      data: pipeline.data,
+      createdAt: auditCreatedAt,
+      fixtureObservations: auditPipeline.fixtureObservations,
+      parseCounts: auditPipeline.parseCounts,
+      pendingFixturePageUrls: auditPipeline.pendingFixturePageUrls ?? [],
+      fetches: auditPipeline.fetches,
+      data: auditPipeline.data,
       issues: [...issueList, ...(imported?.issues ?? [])],
       imported,
+      liveStats,
       operationRunId,
       refreshedShrinkingPlayByPlayUrls,
-      elapsedMs: Date.now() - startedAt
-    });
-
-    return { sourceUrl, sourceCompetitionId, result: pipeline, imported, operationRunId, refreshedShrinkingPlayByPlayUrls, elapsedMs: Date.now() - startedAt };
+      elapsedMs: Date.now() - startedAt,
+      timings: { ...timings }
+    }, options.auditPolicy ?? "full"));
+    try {
+      analysis = await measure("analysisMs", () => exportAnalysis({
+        input: sourceUrl, auditDirectory: dirname(operationAuditPath), auditPath: operationAuditPath,
+        preview: !shouldImport,
+        expectedFixtures: auditPipeline.parseCounts["fixturesDiscovered"] ?? 0,
+        ...(auditPipeline.fixtureObservations ? { fixtures: auditPipeline.fixtureObservations } : {}),
+        audit: { sourceUrl, sourceCompetitionId, parserVersion: PARSER_VERSION, createdAt: auditCreatedAt,
+          mode: options.dryRun ? "dry-run" : options.snapshotOnly ? "snapshot" : options.mode ?? "once",
+          data: auditPipeline.data, fetches: auditPipeline.fetches, parseCounts: auditPipeline.parseCounts, imported },
+      }));
+    } catch (error) {
+      // An optional derived export must not relabel a committed database import as failed.
+      process.stderr.write(`JSON analisis belum diperbarui; jalankan analysis export: ${safeError(error)}\n`);
+    }
+    let maintenance: MaintenanceResult | null = null;
+    if (imported?.status === "succeeded" && options.auditPolicy === "auto") {
+      try {
+        maintenance = await measure("maintenanceMs", () => compactStorage({ auditDirectory: dirname(operationAuditPath),
+          snapshotDirectory: options.snapshotDirectory, snapshotLockHeld: true, onlyIfDue: true }));
+      } catch (error) {
+        // Storage maintenance must not turn a committed import into a failed sync.
+        process.stderr.write(`Pembersihan penyimpanan ditunda: ${safeError(error)}\n`);
+      }
+    }
+    await indexAudit();
+    timings["totalMs"] = Date.now() - startedAt;
+    return { sourceUrl, sourceCompetitionId, result: pipeline, imported, operationRunId,
+      refreshedShrinkingPlayByPlayUrls, audit, maintenance, liveStats, analysis, timings, elapsedMs: Date.now() - startedAt };
   } catch (error) {
+    if (error instanceof LiveStatsSyncError) liveStats = error.result;
     const fetches = pipeline?.fetches ?? (error instanceof PipelineError ? error.fetches : []);
     const issues = pipeline ? [...pipeline.data.issues, ...pipeline.data.matches.flatMap((match) => match.issues), ...(imported?.issues ?? [])]
       : error instanceof PipelineError ? error.issues : [];
@@ -330,8 +411,8 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
     let failureAuditPath: string | null = null;
     let auditWriteError: string | null = null;
     try {
-      const path = options.auditPath(sourceCompetitionId);
-      await writeAuditSafely(path, {
+      const path = operationAuditPath;
+      await writeOperationAudit(path, {
         strategy: options.incremental ? "incremental" : "standard",
         mode: "failed", operationMode: options.mode ?? "once",
         sourceUrl, sourceCompetitionId, parserVersion: PARSER_VERSION,
@@ -339,9 +420,10 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
         fetches, issues, data: pipeline?.data ?? null,
         parseCounts: pipeline?.parseCounts ?? fetchCounts(fetches),
         pendingFixturePageUrls: pipeline?.pendingFixturePageUrls ?? [],
-        imported, error: safeError(error), elapsedMs: Date.now() - startedAt
+        imported, liveStats, error: safeError(error), elapsedMs: Date.now() - startedAt, timings: { ...timings }
       });
       failureAuditPath = path;
+      await indexAudit();
     } catch (auditError) { auditWriteError = safeError(auditError); }
     throw new SyncOperationError(error, sourceUrl, fetches, issues, failureAuditPath, auditWriteError);
   } finally {
@@ -350,11 +432,6 @@ export async function runCompetitionSync(options: SyncOperationOptions): Promise
     for (const lock of [...locks].reverse()) await lock.release().catch(() => undefined);
     if (openedConnection) await openedConnection.close();
   }
-}
-
-async function writeAuditSafely(path: string, audit: unknown): Promise<void> {
-  await mkdir(dirname(resolve(path)), { recursive: true });
-  await writeFile(path, `${JSON.stringify(audit, null, 2)}\n`, { flag: "w" });
 }
 
 export async function runOnceSequentially<T>(

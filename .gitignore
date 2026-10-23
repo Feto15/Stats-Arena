@@ -11,4 +11,5 @@ dashboard/next-env.d.ts
 !.env.example
 ingest/snapshots/
 ingest/audit/
+ingest/.locks/
 .DS_Store

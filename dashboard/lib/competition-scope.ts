@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const sourceCompetitionIdSchema = z.string().trim().regex(/^[1-9]\d{0,31}$/);
+const sourceCompetitionIdSchema = z.string().trim().regex(/^(?:IBL:)?[1-9]\d{0,31}$/);
 
 export type CompetitionFilterState =
   | { status: "unselected" }

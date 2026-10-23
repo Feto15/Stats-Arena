@@ -1,0 +1,62 @@
+[
+  {
+    "file": "fixtures.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041",
+    "fetchedAt": "2026-10-16T05:48:13.431Z",
+    "sha256": "8a73a9be6bbe32d5ce21af0e72ebdad27860b8bfd0d3b8901f6d932cd08ebd6c"
+  },
+  {
+    "file": "match-2697582-analysis.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/analysis",
+    "fetchedAt": "2026-10-16T05:48:17.534Z",
+    "sha256": "cb440ee68954ca168ce51cace1be2923b8f892e978796c762c66b226334f1652"
+  },
+  {
+    "file": "match-2697582-boxscore.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/boxscore",
+    "fetchedAt": "2026-10-16T05:48:16.767Z",
+    "sha256": "4f8690ec77b71b6ada27a13d12b74e0581fb1f9a79e7de1caed93e6711f5bd03"
+  },
+  {
+    "file": "match-2697582-playbyplay.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/playbyplay",
+    "fetchedAt": "2026-10-16T05:48:17.019Z",
+    "sha256": "41e3ad92c310048be10415581a179880be1f2d3c65defcf6422417a713734e1c"
+  },
+  {
+    "file": "match-2697582-shotchart.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/shotchart",
+    "fetchedAt": "2026-10-16T05:48:16.522Z",
+    "sha256": "e2128622968520b5d29504eb10a421fa0c338477092e09ec2e73e0700d081be0"
+  },
+  {
+    "file": "match-2697582-summary.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/summary",
+    "fetchedAt": "2026-10-16T05:48:14.505Z",
+    "sha256": "1debe1c62a50ca8ab603d068c24ba0726467437a8c5c2f739612a4cbef8b267d"
+  },
+  {
+    "file": "players.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/players",
+    "fetchedAt": "2026-10-16T05:48:12.934Z",
+    "sha256": "6ecb8c71028b0398dddd55d78066c14bf5a7f7e2e94b44efb46666a7f327e32a"
+  },
+  {
+    "file": "standings.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/standings",
+    "fetchedAt": "2026-10-16T05:48:14.294Z",
+    "sha256": "a9548695b974f8206d92f942898600ddb2941f04897949f7f97f39824dd714fc"
+  },
+  {
+    "file": "statistics-team.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/statistics/team",
+    "fetchedAt": "2026-10-16T05:48:14.247Z",
+    "sha256": "733fb43a7f32331df540c61827c8798034c80a3d966d4b55b309079515cbde4c"
+  },
+  {
+    "file": "teams.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/teams",
+    "fetchedAt": "2026-10-16T05:48:12.656Z",
+    "sha256": "8b6923d6f157d476b94e0a843b52f242f273c3fa347860fc7fd13507fad6235c"
+  }
+]

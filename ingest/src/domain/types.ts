@@ -1,6 +1,7 @@
+import type { DetailQuality } from "@statsarena/db/data-quality";
 import * as z from "zod";
 
-export const PARSER_VERSION = "statsarena-parser/0.2.2";
+export const PARSER_VERSION = "statsarena-parser/0.2.5";
 export const SOURCE_NAME = "genius_sports" as const;
 
 export const gameStatusSchema = z.enum(["scheduled", "live", "complete", "unknown"]);
@@ -118,6 +119,7 @@ export const boxScoreStatsSchema = z.object({
   twoPointPct: z.string().nullable(),
   threePointPct: z.string().nullable(),
   freeThrowPct: z.string().nullable(),
+  statDerivations: z.record(z.string(), z.object({ formula: z.string(), version: z.string(), inputs: z.record(z.string(), z.number()) })).optional(),
   rawValues: z.record(z.string(), z.string().nullable())
 });
 export type BoxScoreStats = z.infer<typeof boxScoreStatsSchema>;
@@ -194,7 +196,7 @@ export const officialTeamMetricSchema = z.discriminatedUnion("scope", [
     gameSourceId: z.string().min(1),
     teamSourceId: z.string().min(1),
     teamName: z.string().min(1),
-    metricCode: z.enum(["BP", "2CP"]),
+    metricCode: z.enum(["BP", "2CP", "PIP", "PFT", "FBP"]),
     value: nullableInt,
     availability: z.enum(["available", "unavailable"]),
     unit: z.literal("points"),
@@ -250,6 +252,7 @@ export interface GroupStandingsData {
 }
 
 export interface MatchImportData {
+  datasetQuality?: DetailQuality;
   fixture: GameRecord;
   summary: SummaryRecord | null;
   boxScore: BoxScoreRecord | null;

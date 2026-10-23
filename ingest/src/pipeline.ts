@@ -1,3 +1,4 @@
+import { buildDetailQuality } from "@statsarena/db/data-quality";
 import type { FetchMetadata, FetchResult, PageFetchOptions } from "./fetch/fetcher.js";
 import { matchPolicy, pagePolicy } from "./fetch/cache-policy.js";
 import { FetchError, HtmlFetcher } from "./fetch/fetcher.js";
@@ -47,6 +48,7 @@ export interface PipelineResult {
   fetches: FetchMetadata[];
   parseCounts: Record<string, number>;
   pendingFixturePageUrls?: string[];
+  fixtureObservations?: GameRecord[];
 }
 
 export class PipelineError extends Error {
@@ -101,7 +103,7 @@ async function loadPage<T>(
 
   try {
     const parsed = parser(fetched.html, url);
-    const checkpointIssue = await checkpoint(fetcher, fetched, parsed.records.length ? parsed.status : "partial", effectivePolicy);
+    const checkpointIssue = await checkpoint(fetcher, fetched, (parsed.records.length || parsed.issues.some((entry) => entry.code === "TEAM_ANALYSIS_METRICS_UNAVAILABLE")) ? parsed.status : "partial", effectivePolicy);
     return { fetch: fetched, report: parsed, issue: checkpointIssue };
   } catch (error) {
     await checkpoint(fetcher, fetched, "failed", effectivePolicy);
@@ -173,7 +175,7 @@ async function runCompetition(input: string, options: PipelineOptions): Promise<
   const allFixtures = new Map(pageData.games.map((game) => [game.sourceId, game]));
   const fixturePageUrls = new Set<string>([url.href]);
   let fixturePageQueue: string[] = (options.fixturePageResumeUrls ?? []).map((candidate) => {
-    const validated = fixturePageUrl(candidate, competition.sourceId);
+    const validated = fixturePageUrl(candidate, competition.sourceUrl);
     if (!validated) throw new PipelineError("URL kelanjutan fixture tidak valid atau berbeda kompetisi.", url.href, fetches, globalIssues);
     return validated;
   });
@@ -346,7 +348,7 @@ async function runCompetition(input: string, options: PipelineOptions): Promise<
     ...fetchCounts(fetches),
     issues: data.issues.length + data.matches.reduce((sum, match) => sum + match.issues.length, 0)
   };
-  return { data, fetches, parseCounts, pendingFixturePageUrls };
+  return { data, fetches, parseCounts, pendingFixturePageUrls, fixtureObservations: rootFixtures };
 }
 
 /** Count every retrieval, including attempts before a detail refresh. */
@@ -480,7 +482,9 @@ async function loadMatches(
     return rank(a.fixture) - rank(b.fixture) || a.index - b.index;
   });
   const result = await Promise.all(ranked.map(async ({ fixture, index }) => ({
-    index, match: await loadMatch(fixture, fetcher, snapshotOnly, fetches, forceRefresh || refreshGameIds.has(fixture.sourceId), forceRefreshUrls)
+    index, match: await loadMatch(fixture, fetcher, snapshotOnly, fetches, forceRefresh || refreshGameIds.has(fixture.sourceId), forceRefreshUrls).then((match) => ({
+      ...match, datasetQuality: buildDetailQuality(match.availability ?? {}, match.issues)
+    }))
   })));
   return result.sort((a, b) => a.index - b.index).map((entry) => entry.match);
 }

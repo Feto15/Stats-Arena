@@ -1,3 +1,4 @@
+import { sameSourceNamespace } from "@statsarena/db/source";
 import { createHash } from "node:crypto";
 import { SOURCE_HOST, validateSourceUrl } from "../domain/source-url.js";
 import { PARSER_VERSION, type ParseStatus } from "../domain/types.js";
@@ -88,9 +89,9 @@ function positiveInt(value: string | undefined, fallback: number, max: number): 
 
 function supportedPage(url: URL): boolean {
   const path = url.pathname.replace(/\/$/, "");
-  return /^\/IBF\/en\/competition\/\d+(?:\/(?:teams|players|standings|schedule))?\/?$/.test(path) ||
-    /^\/IBF\/en\/competition\/\d+\/statistics\/team\/?$/.test(path) ||
-    /^\/IBF\/en\/(?:competition\/\d+\/)?match\/\d+\/(?:summary|boxscore|playbyplay|shotchart|analysis)\/?$/.test(path);
+  return /^\/(?:IBF|IBL)\/en\/competition\/\d+(?:\/(?:teams|players|standings|schedule))?\/?$/.test(path) ||
+    /^\/(?:IBF|IBL)\/en\/competition\/\d+\/statistics\/team\/?$/.test(path) ||
+    /^\/(?:IBF|IBL)\/en\/(?:competition\/\d+\/)?match\/\d+\/(?:summary|boxscore|playbyplay|shotchart|analysis)\/?$/.test(path);
 }
 
 function validatePageUrl(input: string): URL {
@@ -396,7 +397,10 @@ export class HtmlFetcher {
       const location = response.headers.get("location");
       if (!location) throw new InvalidResponseError(`Redirect HTTP ${response.status} tanpa Location.`);
       if (redirects === 5) throw new InvalidResponseError("Terlalu banyak redirect (batas 5).");
-      try { url = validatePageUrl(new URL(location, url).href); }
+      try {
+        url = validatePageUrl(new URL(location, url).href);
+        if (!sameSourceNamespace(initial.href, url.href)) throw new Error("Redirect berbeda namespace sumber.");
+      }
       catch (error) { throw new InvalidResponseError(error instanceof Error ? error.message : String(error)); }
     }
     throw new InvalidResponseError("Redirect berakhir tanpa respons.");

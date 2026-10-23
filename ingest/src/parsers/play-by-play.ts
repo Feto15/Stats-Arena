@@ -55,7 +55,7 @@ export function parsePlayByPlayHtml(html: string, sourceUrl: string): ParseRepor
   const url = validateSourceUrl(sourceUrl);
   const gameId = sourceEntityId(url.href, "match");
   if (!gameId) throw new ParserError("ID pertandingan tidak ditemukan dari URL", sourceUrl, "/match/{id}/playbyplay");
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   if (!$("#playbyplay").length) throw new ParserError("Panel Play by play tidak ditemukan", sourceUrl, "#playbyplay");
   const nodes = $("#playbyplay .pbpa").toArray();
   if (!nodes.length) throw new ParserError("Event Play by play tidak ditemukan", sourceUrl, "#playbyplay .pbpa");

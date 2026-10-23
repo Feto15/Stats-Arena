@@ -1,4 +1,9 @@
+import { enrichQualityIssue, qualityIssueEvidence, qualityCategory, QUALITY_LABELS } from "@statsarena/db/data-quality";
 import Link from "next/link";
+import { PlayersContent } from "./players-table";
+import { GlobalReviewContent } from "./global-review";
+import { ReviewImpact } from "./review-impact";
+import { liveStatsStatusLabels } from "@/lib/data/livestats-status";
 import { CalendarDays, CircleAlert, Shield, Trophy, Users } from "lucide-react";
 import { KpiCard } from "@/components/dashboard-ui/kpi-card";
 import { SectionCard } from "@/components/dashboard-ui/section-card";
@@ -29,6 +34,7 @@ import {
 import {
   parseGameListFilters,
   parsePage,
+  parsePlayerListFilters,
   parseReviewFilters,
   parseStandingsFilters,
 } from "@/lib/data/queries";
@@ -38,6 +44,7 @@ import {
   readOverview,
   readPlayers,
   readReview,
+  readGlobalReview,
   readStandings,
   readTeams,
 } from "@/lib/data/server";
@@ -48,7 +55,6 @@ import type {
   OperationalStatus,
   OverviewSummary,
   PageResult,
-  PlayerListItem,
   ReviewSummary,
   StandingListItem,
   TeamListItem,
@@ -210,28 +216,6 @@ function TeamsContent({ result, params }: { result: PageResult<TeamListItem>; pa
   );
 }
 
-function PlayersContent({ result, params }: { result: PageResult<PlayerListItem>; params: DashboardSearchParams }) {
-  return (
-    <TableShell title="Pemain kompetisi" description="Rata-rata memakai baris statistik dari laga selesai; tim hanya berasal dari catatan roster.">
-      <Table>
-        <caption className="sr-only">Daftar pemain StatsArena</caption>
-        <TableHeader><TableRow className="hover:bg-transparent"><TableHead className="pl-4">Pemain</TableHead><TableHead>Source ID</TableHead><TableHead>GP</TableHead><TableHead>MIN</TableHead><TableHead>PTS</TableHead><TableHead>REB</TableHead><TableHead>AST</TableHead><TableHead>STL</TableHead><TableHead>BLK</TableHead><TableHead>Tim roster</TableHead></TableRow></TableHeader>
-        <TableBody>
-          {result.items.length === 0
-            ? <TableEmptyRow colSpan={10} title="Belum ada pemain" description="Kompetisi ini belum memiliki keikutsertaan pemain di database." />
-            : result.items.map((player) => <TableRow key={player.id}>
-              <TableCell className="pl-4"><Link href={hrefWithQuery(`/players/${player.sourcePlayerId}`, params)} className="font-medium hover:text-primary hover:underline">{player.name}</Link></TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">{player.sourcePlayerId}</TableCell>
-              <TableCell>{formatCount(player.gamesPlayed)}</TableCell><TableCell>{formatAverage(player.averageMinutes)}</TableCell>
-              <TableCell>{formatAverage(player.pointsPerGame)}</TableCell><TableCell>{formatAverage(player.reboundsPerGame)}</TableCell><TableCell>{formatAverage(player.assistsPerGame)}</TableCell><TableCell>{formatAverage(player.stealsPerGame)}</TableCell><TableCell>{formatAverage(player.blocksPerGame)}</TableCell>
-              <TableCell className="max-w-48 truncate text-xs">{player.teamNames.length > 0 ? player.teamNames.join(", ") : <span className="text-muted-foreground">—</span>}</TableCell>
-            </TableRow>)}
-        </TableBody>
-      </Table>
-      {result.total > result.pageSize && <Pagination route="/players" params={params} result={result} />}
-    </TableShell>
-  );
-}
 
 function StandingsContent({
   groups,
@@ -276,15 +260,20 @@ function StandingsContent({
 function ReviewContent({ summary, params }: { summary: ReviewSummary; params: DashboardSearchParams }) {
   const severity = typeof params["severity"] === "string" ? params["severity"] : "";
   const issueCode = typeof params["code"] === "string" ? params["code"] : "";
+  const issueSource = params["source"] === "portal" || params["source"] === "livestats" ? params["source"] : "";
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <KpiCard label="Isu total" value={formatCount(summary.totalIssues)} hint="Seluruh isu tersimpan dalam kompetisi ini" icon={<CircleAlert className="size-4" />} accent="info" />
-        <KpiCard label="Run terakhir" value={summary.latestRun?.status ?? "—"} hint={summary.latestRun ? summary.latestRun.startedAt.toLocaleString("id-ID") : "Belum ada run"} icon={<CalendarDays className="size-4" />} />
-        <KpiCard label="Parser" value={summary.latestRun?.parserVersion ?? "—"} hint={summary.latestRun?.mode ?? "Belum tersedia"} icon={<Shield className="size-4" />} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Isu total" value={formatCount(summary.totalIssues)} hint={`${summary.sourceCounts.portal} histori portal · ${summary.sourceCounts.livestats} isu LiveStats aktif`} icon={<CircleAlert className="size-4" />} accent="info" />
+        <KpiCard label="Laga LiveStats perlu diperiksa" value={formatCount(summary.liveStatsGames)} hint="Jumlah laga, bukan jumlah baris isu" icon={<CircleAlert className="size-4" />} />
+        <KpiCard label="Run portal terakhir" value={summary.latestRun?.status ?? "—"} hint={summary.latestRun ? summary.latestRun.startedAt.toLocaleString("id-ID") : "Belum ada run"} icon={<CalendarDays className="size-4" />} />
+        <KpiCard label="Parser portal" value={summary.latestRun?.parserVersion ?? "—"} hint={summary.latestRun?.mode ?? "Belum tersedia"} icon={<Shield className="size-4" />} />
       </div>
       <form method="get" action="/review" className="flex flex-wrap items-end gap-2 rounded-lg border bg-card p-3">
         {typeof params["competition"] === "string" && <input type="hidden" name="competition" value={params["competition"]} />}
+        <label className="grid gap-1 text-xs text-muted-foreground">Sumber isu
+          <select name="source" defaultValue={issueSource} className="h-8 min-w-36 rounded-md border border-input bg-background px-2 text-xs text-foreground"><option value="">Semua sumber</option><option value="portal">Portal Genius</option><option value="livestats">LiveStats</option></select>
+        </label>
         <label className="grid gap-1 text-xs text-muted-foreground">Severity
           <select name="severity" defaultValue={severity} className="h-8 min-w-36 rounded-md border border-input bg-background px-2 text-xs text-foreground"><option value="">Semua</option><option value="error">Error</option><option value="warning">Warning</option><option value="info">Info</option></select>
         </label>
@@ -293,19 +282,23 @@ function ReviewContent({ summary, params }: { summary: ReviewSummary; params: Da
         </label>
         <button type="submit" className="h-8 rounded-md border px-3 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Terapkan</button>
       </form>
-      <TableShell title="Isu validasi" description="Run terbaru diberi penanda sendiri agar bisa dibedakan dari histori sebelumnya.">
+      <TableShell title="Isu validasi" description="Portal memuat histori impor; LiveStats menampilkan isu aktif dari pengamatan terbaru. Isu LiveStats hilang dari daftar aktif setelah pemeriksaan berhasil. Status pertandingan ditampilkan terpisah dari status tambahan.">
         <Table>
           <caption className="sr-only">Isu validasi StatsArena</caption>
-          <TableHeader><TableRow className="hover:bg-transparent"><TableHead className="pl-4">Severity</TableHead><TableHead>Kode</TableHead><TableHead>Keterangan</TableHead><TableHead>Field</TableHead><TableHead>Pertandingan</TableHead><TableHead>Run</TableHead><TableHead>Waktu</TableHead><TableHead>Sumber</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow className="hover:bg-transparent"><TableHead className="pl-4">Severity</TableHead><TableHead>Kode</TableHead><TableHead>Keterangan</TableHead><TableHead>Field</TableHead><TableHead>Pertandingan</TableHead><TableHead>Status data</TableHead><TableHead>Pengamatan</TableHead><TableHead>Waktu</TableHead><TableHead>Sumber</TableHead></TableRow></TableHeader>
           <TableBody>
             {summary.issues.items.length === 0
-              ? <TableEmptyRow colSpan={8} title="Tidak ada isu" description="Tidak ada isu yang cocok dengan filter ini." />
+              ? <TableEmptyRow colSpan={9} title="Tidak ada isu" description="Tidak ada isu yang cocok dengan filter ini." />
               : summary.issues.items.map((issue) => <TableRow key={issue.id}>
                 <TableCell className="pl-4"><span className={`rounded-md border px-2 py-0.5 text-[11px] ${issue.severity === "error" ? "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300" : issue.severity === "warning" ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300" : "border-border bg-muted text-muted-foreground"}`}>{issue.severity}</span></TableCell>
-                <TableCell className="font-mono text-xs">{issue.code}</TableCell><TableCell className="max-w-[32rem] whitespace-normal text-xs">{issue.message}</TableCell><TableCell className="font-mono text-xs text-muted-foreground">{issue.fieldPath ?? "—"}</TableCell>
-                <TableCell>{issue.game ? <Link href={hrefWithQuery(`/games/${issue.game.sourceGameId}`, params)} className="font-mono text-xs hover:text-primary hover:underline">{issue.game.sourceGameId}</Link> : <span className="text-muted-foreground">—</span>}</TableCell>
-                <TableCell>{issue.isLatestRun ? <span className="text-xs font-medium text-primary">Run terbaru</span> : issue.importRun ? <span className="text-xs text-muted-foreground">Histori · {issue.importRun.status}</span> : <span className="text-xs text-muted-foreground">Tanpa run</span>}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{issue.createdAt.toLocaleString("id-ID")}</TableCell><TableCell><SourceLink href={issue.sourceUrl} /></TableCell>
+                <TableCell className="font-mono text-xs">{issue.code}</TableCell><TableCell className="min-w-72 max-w-[32rem] whitespace-normal text-xs">{enrichQualityIssue(issue).message}
+                  <ReviewImpact issue={{ source: issue.issueSource, code: issue.code, status: issue.supplementStatus, sourceUrl: issue.sourceUrl }} historical={issue.issueSource === "portal"} />
+                  {issue.issueSource === "portal" ? <p className="mt-1 text-muted-foreground">{issue.severity === "error" ? QUALITY_LABELS[qualityCategory(enrichQualityIssue(issue))] : "Catatan sumber"} · {qualityIssueEvidence(enrichQualityIssue(issue))}</p> : (issue.expected != null || issue.actual != null) && <details className="mt-2"><summary className="cursor-pointer text-primary">Bandingkan nilai sumber</summary><div className="mt-2 space-y-2"><p className="text-muted-foreground">Portal</p><pre className="max-h-48 max-w-80 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2 text-[10px]">{JSON.stringify(issue.expected, null, 2)}</pre><p className="text-muted-foreground">LiveStats</p><pre className="max-h-48 max-w-80 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2 text-[10px]">{JSON.stringify(issue.actual, null, 2)}</pre></div></details>}
+                </TableCell><TableCell className="font-mono text-xs text-muted-foreground">{issue.fieldPath ?? "—"}</TableCell>
+                <TableCell>{issue.game ? <div className="space-y-1"><Link href={hrefWithQuery(`/games/${issue.game.sourceGameId}`, params, { source: null, severity: null, code: null, page: null })} className="font-mono text-xs hover:text-primary hover:underline">{issue.game.sourceGameId}</Link><div><StatusBadge status={issue.game.status} /></div></div> : <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="text-xs">{issue.supplementStatus ? liveStatsStatusLabels[issue.supplementStatus] : "Isu portal"}</TableCell>
+                <TableCell>{issue.issueSource === "livestats" ? <span className="text-xs font-medium text-primary">Data terbaru</span> : issue.isLatestRun ? <span className="text-xs font-medium text-primary">Run terbaru</span> : issue.importRun ? <span className="text-xs text-muted-foreground">Histori · {issue.importRun.status}</span> : <span className="text-xs text-muted-foreground">Tanpa run</span>}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{issue.createdAt.toLocaleString("id-ID")}</TableCell><TableCell><p className="mb-1 text-xs font-medium">{issue.issueSource === "livestats" ? "LiveStats" : "Portal Genius"}</p><SourceLink href={issue.sourceUrl} /></TableCell>
               </TableRow>)}
           </TableBody>
         </Table>
@@ -403,6 +396,15 @@ export async function DashboardPage({
   const definition = dashboardPageDefinitions[page];
   const pageNumber = parsePage(params["page"]);
 
+  if (page === "review" && (params["scope"] === "all" || selected.status === "unselected")) {
+    const result = await readGlobalReview(parseReviewFilters(params));
+    return <div className="w-full space-y-4 p-4 sm:p-6">
+      <div><h1 className="text-lg font-semibold tracking-tight sm:text-xl">Review · Semua kompetisi</h1><p className="mt-1 text-sm text-muted-foreground">Daftar laga dengan masalah data aktif di seluruh kompetisi tersimpan.</p></div>
+      <div className="rounded-lg border bg-card px-4 py-3 text-sm">Cakupan: <strong>semua kompetisi</strong>. Pilih kompetisi di atas untuk melihat Review per kompetisi.</div>
+      {result.status === "error" ? <DataError message={result.message} /> : <GlobalReviewContent summary={result.data} params={params} />}
+    </div>;
+  }
+
   if (selected.status !== "selected") {
     return <PageFrame definition={definition} competitionId={null} state={selected} competition={null}><DataEmpty title={selected.status === "invalid" ? "Perbaiki pilihan kompetisi" : "Kompetisi belum dipilih"} description={selected.status === "invalid" ? "Pilih satu kompetisi dari daftar di bagian atas." : "Pilih kompetisi di bagian atas untuk membuka data yang tersimpan di Neon."} /></PageFrame>;
   }
@@ -429,8 +431,9 @@ export async function DashboardPage({
     return <PageFrame definition={definition} competitionId={selected.sourceCompetitionId} state={selected} competition={competition}>{result.status === "error" ? <DataError message={result.message} /> : <TeamsContent result={result.data} params={params} />}</PageFrame>;
   }
   if (page === "players") {
-    const result = await readPlayers(competition.id, pageNumber);
-    return <PageFrame definition={definition} competitionId={selected.sourceCompetitionId} state={selected} competition={competition}>{result.status === "error" ? <DataError message={result.message} /> : <PlayersContent result={result.data} params={params} />}</PageFrame>;
+    const filters = parsePlayerListFilters(params);
+    const result = await readPlayers(competition.id, pageNumber, filters);
+    return <PageFrame definition={definition} competitionId={selected.sourceCompetitionId} state={selected} competition={competition}>{result.status === "error" ? <DataError message={result.message} /> : <PlayersContent result={result.data} params={params} filters={filters} competitionId={selected.sourceCompetitionId} teamOptions={result.teamOptions} />}</PageFrame>;
   }
   if (page === "standings") {
     const result = await readStandings(competition.id, parseStandingsFilters(params));
@@ -462,6 +465,7 @@ function PageFrame({
         {competitionId && <div className="rounded-md border bg-muted/30 px-2.5 py-1.5 font-mono text-xs text-muted-foreground">Competition ID · {competitionId}</div>}
       </div>
       <CompetitionNotice state={state} competition={competition} unavailable={competitionUnavailable} />
+      {definition.title === "Review" && <Link href="/review?scope=all" className="inline-flex rounded-md border px-3 py-2 text-xs font-medium hover:bg-muted">Lihat laga bermasalah semua kompetisi</Link>}
       {children}
     </div>
   );

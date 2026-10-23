@@ -1,0 +1,41 @@
+[
+  {
+    "file": "2931666.json.gz",
+    "url": "https://fibalivestats.dcd.shared.geniussports.com/data/2931666/data.json",
+    "namespace": "IBF",
+    "fetchedDate": "2026-10-16",
+    "sha256": "6a204280df00a71fe8c46eb413bf8fb3df65f241ac73b04cb8ec3867906ff94e"
+  },
+  {
+    "file": "2915281.json.gz",
+    "url": "https://fibalivestats.dcd.shared.geniussports.com/data/2915281/data.json",
+    "namespace": "IBF",
+    "fetchedDate": "2026-10-16",
+    "sha256": "fd81ee1248ff697e4e2e0db21f55eee4bec18f546048e19ebd5eaf353946e645"
+  },
+  {
+    "file": "2783625.json.gz",
+    "url": "https://fibalivestats.dcd.shared.geniussports.com/data/2783625/data.json",
+    "namespace": "IBL",
+    "fetchedDate": "2026-10-16",
+    "sha256": "24046eb52ecd9f9d3cc9de0c44fbab14629ead03359441f62f30d70f00accb57"
+  },
+  {
+    "file": "2931666-bs.html.gz",
+    "url": "https://fibalivestats.dcd.shared.geniussports.com/u/IBF/2931666/bs.html",
+    "fetchedDate": "2026-10-16",
+    "sha256": "0e6202878417b7ef7158d378c28c7e296d7d44480095e49000df5fff6a29094b"
+  },
+  {
+    "file": "2783625-portal-boxscore.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/47793/match/2783625/boxscore",
+    "fetchedDate": "2026-10-16",
+    "sha256": "54690847332dc193a7237337974b1e498a645199469603edb0376f944659952c"
+  },
+  {
+    "file": "2915281-portal-boxscore.html.gz",
+    "url": "https://hosted.dcd.shared.geniussports.com/IBF/en/competition/49609/match/2915281/boxscore",
+    "fetchedDate": "2026-10-16",
+    "sha256": "49766686625b7cfb4e89287e0e8dc21f735e404966d488478e0a5b3a8ee3e890"
+  }
+]

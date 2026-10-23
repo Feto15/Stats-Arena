@@ -1,6 +1,7 @@
+import { qualityRetryDue, type DetailQuality } from "@statsarena/db/data-quality";
 import { createHash } from "node:crypto";
 import { PARSER_VERSION, type GameRecord, type ParseStatus } from "./types.js";
-import { sourceEntityId } from "./source-url.js";
+import { sourceEntityId, sameCompetition } from "./source-url.js";
 
 export interface SavedGameSyncState {
   fixtureHash: string | null;
@@ -8,6 +9,7 @@ export interface SavedGameSyncState {
   detailParserVersion: string | null;
   detailSyncedAt: Date | null;
   needsRetry: boolean;
+  detailQuality?: DetailQuality | null;
 }
 
 export type IncrementalReason = "new" | "changed" | "active" | "unverified" | "retry" | "parser_changed";
@@ -23,17 +25,22 @@ export function fixtureHash(fixture: GameRecord): string {
 }
 
 export function incrementalReason(
-  fixture: GameRecord, saved: SavedGameSyncState | undefined, forceRefreshUrls: ReadonlySet<string>
+  fixture: GameRecord, saved: SavedGameSyncState | undefined, forceRefreshUrls: ReadonlySet<string>, now = new Date()
 ): IncrementalReason | null {
   if (!saved) return "new";
   if (fixture.status === "live" || fixture.status === "unknown") return "active";
   if ([...forceRefreshUrls].some((url) => sourceEntityId(url, "match") === fixture.sourceId &&
-    sourceEntityId(url, "competition") === sourceEntityId(fixture.sourceUrl, "competition"))) return "retry";
+    sameCompetition(url, fixture.sourceUrl))) return "retry";
   // Old imports have no fixture observation yet. Reuse valid cache for this bootstrap.
   if (saved.fixtureHash === null) return "unverified";
   if (saved.fixtureHash !== fixtureHash(fixture)) return "changed";
-  if (saved.needsRetry || saved.detailSyncStatus !== "parsed") return "retry";
   if (saved.detailParserVersion !== PARSER_VERSION) return "parser_changed";
+  if (saved.needsRetry || saved.detailSyncStatus !== "parsed") {
+    if (saved.detailQuality && Object.values(saved.detailQuality).some((state) => state.category !== null)) {
+      return qualityRetryDue(saved.detailQuality, now) ? "retry" : null;
+    }
+    return "retry";
+  }
   if (fixture.status === "complete" && saved.detailSyncedAt === null) return "unverified";
   return null;
 }

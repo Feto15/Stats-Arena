@@ -107,13 +107,16 @@ test("Shot chart filters foul and turnover markers and makes malformed shot mark
   assert.ok(partial.issues.some((entry) => entry.code === "SHOT_MARKER_INCOMPLETE"));
 });
 
-test("Team Analysis stores game-scope 2CP and explicit unavailable BP for both competitions", () => {
+test("Team Analysis stores game-scope PIP/PFT/FBP/2CP and explicit unavailable BP for both competitions", () => {
   const source07 = loadStage5HtmlFixture("49607-2931666-analysis.html.gz");
   const parsed07 = parseTeamAnalysisHtml(source07, `${base07}/match/2931666/analysis`);
   assert.equal(parsed07.status, "parsed");
-  assert.equal(parsed07.records.length, 4);
+  assert.equal(parsed07.records.length, 10);
   assert.ok(parsed07.records.every((metric) => metric.scope === "game" && metric.gameSourceId === "2931666"));
   assert.deepEqual(parsed07.records.filter((metric) => metric.metricCode === "2CP").map((metric) => metric.value), [4, 7]);
+  assert.deepEqual(parsed07.records.filter((metric) => metric.metricCode === "PIP").map((metric) => metric.value), [16, 24]);
+  assert.deepEqual(parsed07.records.filter((metric) => metric.metricCode === "PFT").map((metric) => metric.value), [13, 22]);
+  assert.deepEqual(parsed07.records.filter((metric) => metric.metricCode === "FBP").map((metric) => metric.value), [5, 11]);
   assert.ok(parsed07.records.filter((metric) => metric.metricCode === "BP").every((metric) => metric.value === null && metric.availability === "unavailable"));
 
   const parsed09 = parseTeamAnalysisHtml(
@@ -121,6 +124,7 @@ test("Team Analysis stores game-scope 2CP and explicit unavailable BP for both c
     `${base09}/match/2915281/analysis`
   );
   assert.equal(parsed09.records.filter((metric) => metric.metricCode === "2CP").length, 2);
+  assert.deepEqual(parsed09.records.filter((metric) => metric.metricCode === "PIP").map((metric) => metric.value), [18, 2]);
 });
 
 test("Team Statistics values remain competition aggregates and retain games-played scope", () => {
@@ -144,6 +148,9 @@ test("Team Statistics values remain competition aggregates and retain games-play
 test("official metric parsers reject missing/shifted cells and invalid values, while preserving zero and explicit unavailable", () => {
   const cases = [
     { file: "49607-2931666-analysis.html.gz", url: `${base07}/match/2931666/analysis`, parser: parseTeamAnalysisHtml, metric: "2CP", final: true },
+    { file: "49607-2931666-analysis.html.gz", url: `${base07}/match/2931666/analysis`, parser: parseTeamAnalysisHtml, metric: "PIP", final: true },
+    { file: "49607-2931666-analysis.html.gz", url: `${base07}/match/2931666/analysis`, parser: parseTeamAnalysisHtml, metric: "PFT", final: true },
+    { file: "49607-2931666-analysis.html.gz", url: `${base07}/match/2931666/analysis`, parser: parseTeamAnalysisHtml, metric: "FBP", final: true },
     { file: "49607-competition-statistics-team.html.gz", url: `${base07}/statistics/team`, parser: parseTeamStatisticsHtml, metric: "BP", final: false }
   ];
   for (const sample of cases) {

@@ -5,10 +5,10 @@ import { sourceEntityId, validateSourceUrl } from "../domain/source-url.js";
 import { boxScoreCompletenessIssues } from "../domain/validation.js";
 import { cleanText, issue, loadHtml, normalizedHeader, ParserError, report } from "./common.js";
 
-type StatField = keyof Omit<BoxScoreStats, "minutesRaw" | "rawValues">;
+type StatField = keyof Omit<BoxScoreStats, "minutesRaw" | "rawValues" | "statDerivations">;
 type ColumnKind = StatField | "player" | "jersey" | "pairedFieldGoals" | "pairedTwoPoints" | "pairedThreePoints" | "pairedFreeThrows" | null;
 
-const NULL_STATS: Omit<BoxScoreStats, "minutesRaw" | "rawValues"> = {
+const NULL_STATS: Omit<BoxScoreStats, "minutesRaw" | "rawValues" | "statDerivations"> = {
   minutes: null,
   fieldGoalsMade: null,
   fieldGoalsAttempted: null,
@@ -190,7 +190,20 @@ function statsFromRow($: ReturnType<typeof loadHtml>, row: AnyNode, names: strin
     const number = parseInteger(value);
     if (number !== null || value === "0") stats[kind] = number;
   }
-  return boxScoreStatsSchema.parse(stats);
+  const parsed = boxScoreStatsSchema.parse(stats);
+  // Derive only when 2P columns are absent, never to fill an invalid/blank official cell.
+  if (!kinds.some((kind) => kind === "pairedTwoPoints" || kind === "twoPointsMade" || kind === "twoPointAttempts")) {
+    const { fieldGoalsMade: fgm, fieldGoalsAttempted: fga, threePointsMade: pm, threePointAttempts: pa } = parsed;
+    if (fgm !== null && fga !== null && pm !== null && pa !== null &&
+        fgm <= fga && pm <= pa && pm <= fgm && pa <= fga && fgm - pm <= fga - pa) {
+      parsed.twoPointsMade = fgm - pm; parsed.twoPointAttempts = fga - pa;
+      parsed.statDerivations = {
+        twoPointsMade: { formula: "FGM - 3PM", version: "1", inputs: { FGM: fgm, "3PM": pm } },
+        twoPointAttempts: { formula: "FGA - 3PA", version: "1", inputs: { FGA: fga, "3PA": pa } }
+      };
+    }
+  }
+  return parsed;
 }
 
 function totalsRow($: ReturnType<typeof loadHtml>, row: AnyNode): boolean {
@@ -255,7 +268,7 @@ export function parseBoxScoreHtml(html: string, sourceUrl: string): ParseReport<
   const url = validateSourceUrl(sourceUrl);
   const gameId = sourceEntityId(url.href, "match");
   if (!gameId) throw new ParserError("ID pertandingan tidak ditemukan dari URL", sourceUrl, "/match/{id}/boxscore");
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   const tables = $("table").toArray();
   if (tables.length === 0) throw new ParserError("Tabel box score tidak ditemukan", sourceUrl, "table");
 

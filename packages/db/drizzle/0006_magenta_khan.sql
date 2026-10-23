@@ -1,0 +1,1 @@
+ALTER TABLE "statsarena"."games" ADD COLUMN "detail_quality" jsonb;

@@ -1,0 +1,2 @@
+ALTER TABLE "statsarena"."player_game_stats" ADD COLUMN "stat_derivations" jsonb DEFAULT '{}'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "statsarena"."team_game_stats" ADD COLUMN "stat_derivations" jsonb DEFAULT '{}'::jsonb NOT NULL;

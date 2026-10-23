@@ -1,3 +1,4 @@
+import { DETAIL_DATASETS, QUALITY_LABELS, qualityIssueEvidence } from "@statsarena/db/data-quality";
 import Link from "next/link";
 import { CalendarDays, Clock3, ExternalLink, Trophy } from "lucide-react";
 import { KpiCard } from "@/components/dashboard-ui/kpi-card";
@@ -24,6 +25,8 @@ import type { DashboardSearchParams } from "@/lib/competition-scope";
 import type { GameDetail, GameDetailFilters, PlayerSummary, TeamSummary } from "@/lib/data/contracts";
 import { boxScoreStateMessage } from "@/lib/data/box-score-state";
 import { safeSourceHref } from "@/lib/data/server";
+import { liveStatsStatusLabels } from "@/lib/data/livestats-status";
+import { selectTeamMetrics, TEAM_METRIC_CODES } from "@/lib/data/team-metrics";
 
 function DetailHeader({
   eyebrow,
@@ -50,7 +53,7 @@ function MetricRow({ label, value }: { label: string; value: string }) {
 function TeamStatSection({ game }: { game: GameDetail }) {
   const teams = [game.homeTeamStats, game.awayTeamStats].filter((item) => item !== null);
   if (teams.length === 0) return <DataEmpty title="Statistik tim belum tersedia" description={game.status === "scheduled" ? "Pertandingan belum berjalan; statistik belum tersedia dan tidak diisi dengan angka nol." : "Ringkasan statistik tim belum tersimpan untuk pertandingan ini."} />;
-  return <SectionCard title="Statistik tim resmi" description="Angka mengikuti box score sumber.">
+  return <SectionCard title="Statistik tim resmi" description="Angka mengikuti box score sumber. Jika kolom 2P tidak disediakan, 2PM = FGM − 3PM dan 2PA = FGA − 3PA dihitung dari angka sumber; metadata rumus disimpan.">
     <Table><caption className="sr-only">Statistik tim pertandingan</caption><TableHeader><TableRow className="hover:bg-transparent"><TableHead>Tim</TableHead><TableHead>MIN</TableHead><TableHead>FG</TableHead><TableHead>2P</TableHead><TableHead>3P</TableHead><TableHead>FT</TableHead><TableHead>REB</TableHead><TableHead>AST</TableHead><TableHead>STL</TableHead><TableHead>BLK</TableHead><TableHead>TO</TableHead><TableHead>PTS</TableHead></TableRow></TableHeader><TableBody>
       {teams.map((stats) => <TableRow key={stats.team.id}><TableCell className="font-medium">{stats.team.name}</TableCell><TableCell>{formatAverage(stats.minutes)}</TableCell><TableCell>{formatCount(stats.fieldGoalsMade)}/{formatCount(stats.fieldGoalsAttempted)} <span className="text-muted-foreground">{formatPercent(stats.fieldGoalPct)}</span></TableCell><TableCell>{formatCount(stats.twoPointsMade)}/{formatCount(stats.twoPointAttempts)}</TableCell><TableCell>{formatCount(stats.threePointsMade)}/{formatCount(stats.threePointAttempts)} <span className="text-muted-foreground">{formatPercent(stats.threePointPct)}</span></TableCell><TableCell>{formatCount(stats.freeThrowsMade)}/{formatCount(stats.freeThrowAttempts)} <span className="text-muted-foreground">{formatPercent(stats.freeThrowPct)}</span></TableCell><TableCell>{formatCount(stats.rebounds)}</TableCell><TableCell>{formatCount(stats.assists)}</TableCell><TableCell>{formatCount(stats.steals)}</TableCell><TableCell>{formatCount(stats.blocks)}</TableCell><TableCell>{formatCount(stats.turnovers)}</TableCell><TableCell>{formatCount(stats.points)}</TableCell></TableRow>)}
     </TableBody></Table>
@@ -65,6 +68,24 @@ function PlayerBoxScore({ game }: { game: GameDetail }) {
     <Table><caption className="sr-only">Box score pemain pertandingan</caption><TableHeader><TableRow className="hover:bg-transparent"><TableHead className="pl-4">Pemain</TableHead><TableHead>Tim</TableHead><TableHead>MIN</TableHead><TableHead>FG</TableHead><TableHead>3P</TableHead><TableHead>FT</TableHead><TableHead>REB</TableHead><TableHead>AST</TableHead><TableHead>STL</TableHead><TableHead>BLK</TableHead><TableHead>TO</TableHead><TableHead>PF</TableHead><TableHead>PTS</TableHead></TableRow></TableHeader><TableBody>
       {game.playerStats.length === 0 ? <TableRow><TableCell colSpan={13} className="p-0"><div className="p-8 text-center text-sm text-muted-foreground">{emptyMessage}</div></TableCell></TableRow> : game.playerStats.map((stats) => <TableRow key={stats.player.id}><TableCell className="pl-4"><span className="font-medium">{stats.player.name}</span><span className="ml-2 font-mono text-[10px] text-muted-foreground">{stats.player.sourcePlayerId}</span></TableCell><TableCell>{stats.team.name}</TableCell><TableCell title={stats.minutesRaw ?? undefined}>{formatAverage(stats.minutes)}</TableCell><TableCell>{formatCount(stats.fieldGoalsMade)}/{formatCount(stats.fieldGoalsAttempted)}</TableCell><TableCell>{formatCount(stats.threePointsMade)}/{formatCount(stats.threePointAttempts)}</TableCell><TableCell>{formatCount(stats.freeThrowsMade)}/{formatCount(stats.freeThrowAttempts)}</TableCell><TableCell>{formatCount(stats.rebounds)}</TableCell><TableCell>{formatCount(stats.assists)}</TableCell><TableCell>{formatCount(stats.steals)}</TableCell><TableCell>{formatCount(stats.blocks)}</TableCell><TableCell>{formatCount(stats.turnovers)}</TableCell><TableCell>{formatCount(stats.personalFouls)}</TableCell><TableCell>{formatCount(stats.points)}</TableCell></TableRow>)}
     </TableBody></Table>
+  </SectionCard>;
+}
+
+function LiveStatsSection({ game }: { game: GameDetail }) {
+  const extra = game.liveStats;
+  const payload = extra?.payload;
+  return <SectionCard title="Statistik tambahan LiveStats" description="Plus/minus, starter, dan metrik resmi pertandingan dari LiveStats. Statistik dasar tetap mengikuti portal.">
+    <p className="mb-3 text-xs text-muted-foreground">{extra ? liveStatsStatusLabels[extra.status] : game.status === "scheduled" ? "Pertandingan belum berjalan." : "Belum disinkronkan."}
+      {extra?.sourceFetchedAt && ` · Data ${extra.sourceFetchedAt.toLocaleString("id-ID")}`}
+      {payload && extra?.status !== "ready" && " · Nilai terverifikasi tetap ditampilkan; sebagian tambahan perlu diperiksa."}</p>
+    {payload && <>
+      <Table><caption className="sr-only">Statistik tambahan pemain LiveStats</caption><TableHeader><TableRow><TableHead>Pemain</TableHead><TableHead>Starter</TableHead><TableHead>POS</TableHead><TableHead>+/−</TableHead><TableHead>BLKR</TableHead><TableHead>Fouls drawn</TableHead><TableHead>2CP</TableHead><TableHead>FBP</TableHead><TableHead>PIP</TableHead><TableHead>Index</TableHead></TableRow></TableHeader><TableBody>
+        {payload.players.map(player => <TableRow key={player.playerId}><TableCell>{player.name}</TableCell><TableCell>{player.starter === null ? "—" : player.starter ? "Ya" : "Bench"}</TableCell><TableCell>{player.position ?? "—"}</TableCell><TableCell>{player.plusMinus === null ? "—" : player.plusMinus > 0 ? `+${player.plusMinus}` : player.plusMinus}</TableCell><TableCell>{formatCount(player.blocksReceived)}</TableCell><TableCell>{formatCount(player.foulsDrawn)}</TableCell><TableCell>{formatCount(player.secondChancePoints)}</TableCell><TableCell>{formatCount(player.fastBreakPoints)}</TableCell><TableCell>{formatCount(player.pointsInPaint)}</TableCell><TableCell>{formatCount(player.indexOfSuccess)}</TableCell></TableRow>)}
+      </TableBody></Table>
+      <p className="mt-2 text-xs text-muted-foreground">Index mengikuti “Index of Success” sumber; bukan BPM. BLKR: tembakan diblok lawan. BP: poin pemain cadangan. 2CP: poin kesempatan kedua.</p>
+    </>}
+    {extra && <div className="mt-3 text-xs"><SourceLink href={extra.pageUrl}>Box score LiveStats</SourceLink></div>}
+    {Boolean(extra?.issues.length) && <ul className="mt-3 space-y-1 text-xs text-muted-foreground">{extra!.issues.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.code}: {issue.message}</li>)}</ul>}
   </SectionCard>;
 }
 
@@ -177,12 +198,29 @@ function ShotChartSection({ game }: { game: GameDetail }) {
   </SectionCard>;
 }
 
+function DatasetStatus({ game }: { game: GameDetail }) {
+  if (!game.datasetQuality) return null;
+  const labels = { summary: "Ringkasan", boxScore: "Box score", playByPlay: "Play by play", shotChart: "Shot chart", analysis: "Metrik resmi" };
+  const statuses = { parsed: "Lengkap", partial: "Parsial", failed: "Gagal diperiksa", scheduled: "Belum bertanding", unavailable: "Belum tersedia" };
+  return <SectionCard title="Kelengkapan data" description="Status detail diperiksa terpisah dari hasil pertandingan. Statistik valid terakhir tetap ditampilkan ketika pemeriksaan baru bermasalah.">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{DETAIL_DATASETS.map((dataset) => {
+      const state = game.datasetQuality![dataset];
+      return <div key={dataset} className="rounded-md border p-3 text-xs">
+        <p className="font-semibold">{labels[dataset]} · {statuses[state.status]}</p>
+        {state.category && <p className="mt-1 text-muted-foreground">{QUALITY_LABELS[state.category]}</p>}
+        {state.issues.filter((issue) => issue.severity === "error").map((issue, index) => <p key={index} className="mt-2 text-muted-foreground">{issue.message} {qualityIssueEvidence(issue)}</p>)}
+        {state.nextRetryAt && <p className="mt-2 text-muted-foreground">Pemeriksaan rutin paling cepat: {new Date(state.nextRetryAt).toLocaleString("id-ID")}</p>}
+      </div>;
+    })}</div>
+  </SectionCard>;
+}
+
 function GameReviewIssues({ game, params }: { game: GameDetail; params: DashboardSearchParams }) {
   if (!game.validationIssues.length) return null;
-  return <SectionCard title={`Perlu ditinjau · ${game.validationIssues.length}`} description="Ketidaksesuaian dan isu parsing tersimpan pada Review; nilai sumber tidak dikoreksi diam-diam.">
+  return <SectionCard title={`Catatan dan isu data · ${game.validationIssues.length}`} description="Isu dari pemeriksaan detail terakhir. Riwayat lengkap tersedia pada Review; nilai sumber tidak dikoreksi diam-diam.">
     <ul className="divide-y">
       {game.validationIssues.map((entry) => <li key={entry.id} className="flex flex-col gap-2 py-3 first:pt-0 sm:flex-row sm:items-start sm:justify-between">
-        <div><p className="text-sm font-medium">{entry.code} <span className="ml-2 rounded border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">{entry.severity}</span></p><p className="mt-1 text-xs text-muted-foreground">{entry.message}</p>{entry.fieldPath && <p className="mt-1 font-mono text-[10px] text-muted-foreground">{entry.fieldPath}</p>}</div>
+        <div><p className="text-sm font-medium">{entry.code} <span className="ml-2 rounded border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">{entry.severity}</span></p><p className="mt-1 text-xs text-muted-foreground">{entry.message} {qualityIssueEvidence(entry)}</p>{entry.fieldPath && <p className="mt-1 font-mono text-[10px] text-muted-foreground">{entry.fieldPath}</p>}</div>
         <div className="flex shrink-0 gap-3 text-xs"><SourceLink href={entry.sourceUrl}>Sumber isu</SourceLink><Link className="text-primary underline-offset-4 hover:underline" href={hrefWithQuery("/review", params, { code: entry.code })}>Buka Review</Link></div>
       </li>)}
     </ul>
@@ -190,14 +228,12 @@ function GameReviewIssues({ game, params }: { game: GameDetail; params: Dashboar
 }
 
 function GameOfficialMetrics({ game }: { game: GameDetail }) {
-  if (!game.gameOfficialMetrics.length) return <DataEmpty title="Metrik resmi tambahan belum tersedia" description="Nilai tim hanya ditampilkan pada scope pertandingan jika halaman Team Analysis menyediakan angka tersebut." />;
-  const metrics = [...new Set(game.gameOfficialMetrics.map((metric) => metric.metricCode))];
-  const teams = [...new Map(game.gameOfficialMetrics.map((metric) => [metric.team.id, metric.team])).values()];
-  return <SectionCard title="Metrik resmi tambahan" description="Scope pertandingan. BP tidak disediakan oleh halaman Team Analysis; total kompetisi tidak dipakai sebagai nilai laga.">
-    <Table><caption className="sr-only">Metrik resmi tambahan per tim</caption><TableHeader><TableRow className="hover:bg-transparent"><TableHead>Tim</TableHead>{metrics.map((metric) => <TableHead key={metric}>{metric}</TableHead>)}</TableRow></TableHeader><TableBody>
-      {teams.map((team) => <TableRow key={team.id}><TableCell>{team.name}</TableCell>{metrics.map((code) => { const metric = game.gameOfficialMetrics.find((entry) => entry.team.id === team.id && entry.metricCode === code); return <TableCell key={code}>{metric?.availability === "available" ? formatCount(metric.value) : "Tidak tersedia"}</TableCell>; })}</TableRow>)}
+  const rows = selectTeamMetrics(game);
+  return <SectionCard title="Metrik tim per pertandingan" description="Portal menjadi sumber utama untuk nilai yang tersedia dan valid. LiveStats melengkapi nilai yang belum tersedia. Total kompetisi tidak dipakai sebagai nilai laga.">
+    <Table><caption className="sr-only">Metrik resmi tambahan per tim</caption><TableHeader><TableRow className="hover:bg-transparent"><TableHead>Tim</TableHead>{TEAM_METRIC_CODES.map(metric => <TableHead key={metric}>{metric}</TableHead>)}</TableRow></TableHeader><TableBody>
+      {rows.map(({team, metrics}) => <TableRow key={team.id}><TableCell>{team.name}</TableCell>{metrics.map(metric => <TableCell key={metric.code}><span className="font-medium">{formatCount(metric.value)}</span>{metric.source && <div className="mt-1 text-[10px] text-muted-foreground"><SourceLink href={metric.sourceUrl}>{metric.source === "portal" ? "Portal" : "LiveStats"}</SourceLink></div>}{metric.conflict && <p className="mt-1 whitespace-normal text-xs text-amber-700 dark:text-amber-300">Berbeda · LiveStats: {metric.liveValue}</p>}</TableCell>)}</TableRow>)}
     </TableBody></Table>
-    <div className="mt-3 text-xs"><SourceLink href={game.gameOfficialMetrics[0]?.sourceUrl}>Team Analysis source</SourceLink></div>
+    <p className="mt-3 text-xs text-muted-foreground">PIP: poin di paint · PFT: poin dari turnover · FBP: poin fast break · 2CP: poin kesempatan kedua · BP: poin pemain cadangan. Nilai berbeda tetap dipisahkan menurut sumber.</p>
   </SectionCard>;
 }
 
@@ -226,10 +262,12 @@ export function GameDetailView({ game, params, filters }: { game: GameDetail; pa
       <div className="mt-3 flex flex-wrap gap-4 border-t pt-3 text-xs"><SourceLink href={game.sourceUrl}>Halaman pertandingan</SourceLink></div>
     </SectionCard>
     <BoxScoreState game={game} />
+    <DatasetStatus game={game} />
     <DetailFilters game={game} params={params} filters={filters} />
     <GameReviewIssues game={game} params={params} />
     <TeamStatSection game={game} />
     <PlayerBoxScore game={game} />
+    <LiveStatsSection game={game} />
     <PlayByPlaySection game={game} />
     <ShotChartSection game={game} />
     <GameOfficialMetrics game={game} />

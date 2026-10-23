@@ -5,7 +5,7 @@ import { sourceEntityId } from "../domain/source-url.js";
 import { absoluteSourceUrl, cleanText, idFromElementLink, issue, loadHtml, ParserError, report } from "./common.js";
 
 export function parseTeamsHtml(html: string, sourceUrl: string): ParseReport<TeamRecord> {
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   const blocks = $(".team-link").toArray();
   if (blocks.length === 0) throw new ParserError("Blok tim tidak ditemukan", sourceUrl, ".team-link");
 

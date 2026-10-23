@@ -1,11 +1,11 @@
-import { SOURCE_HOST, sourceEntityId, validateSourceUrl } from "../domain/source-url.js";
+import { SOURCE_HOST, sameCompetition, validateSourceUrl } from "../domain/source-url.js";
 
 export const MAX_TARGETED_RETRY_URLS = 25;
 
 function supportedRetryPage(url: URL): boolean {
-  return /^\/IBF\/en\/competition\/\d+(?:\/(?:teams|players|standings|schedule))?\/?$/.test(url.pathname) ||
-    /^\/IBF\/en\/competition\/\d+\/statistics\/team\/?$/.test(url.pathname) ||
-    /^\/IBF\/en\/(?:competition\/\d+\/)?match\/\d+\/(?:summary|boxscore|playbyplay|shotchart|analysis)\/?$/.test(url.pathname);
+  return /^\/(?:IBF|IBL)\/en\/competition\/\d+(?:\/(?:teams|players|standings|schedule))?\/?$/.test(url.pathname) ||
+    /^\/(?:IBF|IBL)\/en\/competition\/\d+\/statistics\/team\/?$/.test(url.pathname) ||
+    /^\/(?:IBF|IBL)\/en\/(?:competition\/\d+\/)?match\/\d+\/(?:summary|boxscore|playbyplay|shotchart|analysis)\/?$/.test(url.pathname);
 }
 
 export function targetedRetryUrls(audit: unknown, sourceCompetitionId: string, maxUrls = MAX_TARGETED_RETRY_URLS): string[] {
@@ -34,7 +34,7 @@ export function targetedRetryUrls(audit: unknown, sourceCompetitionId: string, m
     let url: URL;
     try { url = validateSourceUrl(candidate); } catch { continue; }
     if (url.hostname !== SOURCE_HOST || !supportedRetryPage(url)) continue;
-    if (sourceEntityId(url.href, "competition") !== sourceCompetitionId) continue;
+    if (!sameCompetition(url.href, sourceCompetitionId)) continue;
     url.hash = "";
     valid.add(url.href);
   }

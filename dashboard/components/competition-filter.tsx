@@ -22,7 +22,7 @@ export function CompetitionFilter({
   function selectCompetition(nextValue: string) {
     const params = new URLSearchParams(searchParams.toString());
     // Group/team IDs and pagination belong to the previous competition.
-    for (const key of ["group", "team", "page"]) params.delete(key);
+    for (const key of ["group", "team", "page", "scope"]) params.delete(key);
     params.delete("competition");
     if (nextValue) params.set("competition", nextValue);
     const query = params.toString();

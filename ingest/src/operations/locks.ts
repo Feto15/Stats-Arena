@@ -9,6 +9,20 @@ interface LockOwner {
   processId: number;
   acquiredAt: string;
   heartbeatAt: string;
+  processIdentity?: string;
+}
+
+const currentProcessStartedAt = Date.now() - process.uptime() * 1000;
+
+async function processIdentity(processId: number): Promise<string | undefined> {
+  if (process.platform !== "linux") return undefined;
+  try {
+    const [processStat, bootId] = await Promise.all([
+      readFile(`/proc/${processId}/stat`, "utf8"), readFile("/proc/sys/kernel/random/boot_id", "utf8")
+    ]);
+    const startTicks = processStat.slice(processStat.lastIndexOf(")") + 2).trim().split(/\s+/)[19];
+    return startTicks ? `${bootId.trim()}:${startTicks}` : undefined;
+  } catch { return undefined; }
 }
 
 export class LockBusyError extends Error {
@@ -34,7 +48,7 @@ async function readOwner(path: string): Promise<LockOwner | null> {
     const owner = value as Partial<LockOwner>;
     if (typeof owner.ownerId !== "string" || typeof owner.hostname !== "string" ||
         !Number.isSafeInteger(owner.processId) || typeof owner.heartbeatAt !== "string" ||
-        typeof owner.acquiredAt !== "string") return null;
+        typeof owner.acquiredAt !== "string" || (owner.processIdentity !== undefined && typeof owner.processIdentity !== "string")) return null;
     return owner as LockOwner;
   } catch {
     return null;
@@ -47,7 +61,13 @@ async function releaseIfStale(path: string, owner: LockOwner | null, staleAfterM
     try { heartbeat = (await stat(path)).mtimeMs; } catch { return false; }
     if (Date.now() - heartbeat < staleAfterMs) return false;
   } else {
-    if (owner.hostname === hostname() && isAlive(owner.processId)) return false;
+    if (owner.hostname === hostname() && isAlive(owner.processId)) {
+      const identity = await processIdentity(owner.processId);
+      const replaced = owner.processIdentity && identity && owner.processIdentity !== identity;
+      const reusedCurrentPid = owner.processId === process.pid && Date.parse(owner.acquiredAt) < currentProcessStartedAt - 1000;
+      // Container restarts can reuse both hostname and PID. A PID alone is not proof of ownership.
+      if (!replaced && !reusedCurrentPid) return false;
+    }
     if (Number.isFinite(heartbeat) && Date.now() - heartbeat < staleAfterMs) return false;
   }
   const displaced = `${path}.stale-${randomUUID()}`;
@@ -86,7 +106,9 @@ export async function acquireDirectoryLock(
   const absolutePath = resolve(path);
   await mkdir(join(absolutePath, ".."), { recursive: true });
   const now = new Date().toISOString();
-  const owner: LockOwner = { ownerId, hostname: hostname(), processId: process.pid, acquiredAt: now, heartbeatAt: now };
+  const identity = await processIdentity(process.pid);
+  const owner: LockOwner = { ownerId, hostname: hostname(), processId: process.pid, acquiredAt: now, heartbeatAt: now,
+    ...(identity ? { processIdentity: identity } : {}) };
   try {
     await mkdir(absolutePath);
   } catch (error) {

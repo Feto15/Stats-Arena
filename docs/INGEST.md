@@ -1,5 +1,35 @@
 # Parser dan Importer StatsArena
 
+## JSON analisis otomatis — 22 Oktober 2026
+
+Sync/retry/runner menulis file terpisah `ingest/audit/analysis/<key>.json` berisi metrik pemain/tim, input, versi rumus, dan cakupan laga. Dry-run/snapshot menulis preview. Audit sumber dan hash parser tetap terpisah. Data lama dapat diekspor offline dengan `analysis export --competition <ref>`; perintah ini tidak mengambil HTML atau mengakses Neon. Lihat [ANALYTICS.md](./ANALYTICS.md) untuk rumus, null, preservation, summary/delta, serta batas cakupan.
+
+JSON analisis utama diperbarui pada path yang sama dan ditautkan melalui `analysisFile` di katalog; satu file preview disimpan terpisah. Metrik baru tidak disisipkan ke audit portal/JSON mentah LiveStats dan tidak menambah kolom Neon. `analysis export --dry-run` hanya memeriksa rencana, berbeda dari dry-run sync yang menghasilkan preview. Perintah serta pemulihan ekspor gagal ada di [panduan CLI](./INGEST_CLI.md#g-json-analisis-dari-data-lama).
+
+Pengukuran ulang Jakarta South `49626`/`49633`, recovery PBP, dampak sleep Mac, dan rekomendasi optimasi query/retry dicatat dalam [laporan performa 17 Oktober 2026](./INGEST_PERFORMANCE_2026-10-17.md). CLI kini melaporkan `timings` per tahap; tidak ada perubahan schema atau kebijakan validasi pada pekerjaan profiling tersebut.
+
+## Metrik tim portal dan prioritas sumber — 17 Oktober 2026
+
+Parser `0.2.5` membaca 2CP, PIP, PFT, dan FBP pada baris Final Team Analysis berdasarkan header. PIP/PFT/FBP opsional antar layout: header tidak tersedia menghasilkan ketiadaan record, sedangkan sel yang kosong/invalid menghasilkan partial. BP laga tetap unavailable pada layout yang diperiksa. Jika record yang pernah tersimpan hilang pada pengambilan berikutnya, guard importer mempertahankan dataset valid lama. Statistik kompetisi tetap BP/2CP dan tidak dipakai sebagai nilai laga.
+
+Dashboard memakai nilai portal per laga yang valid, kemudian LiveStats sebagai cadangan per tim/per metrik. Adapter LiveStats `1.0.1` membandingkan BP/2CP/PIP/PFT/FBP terhadap portal; selisih dicatat dengan expected/actual, tanpa mengganti salah satu nilai sumber. Nama, status pertandingan, box score, PBP, dan shots tetap memakai aturan sebelumnya.
+
+Pengisian data lama tanpa pengambilan ulang:
+
+```sh
+pnpm --dir ingest run cli metrics backfill --dry-run
+pnpm --dir ingest run cli metrics backfill
+pnpm --dir ingest run cli metrics backfill --competition 49607 --dry-run
+```
+
+Operasi ini membaca snapshot HTML lokal yang hash-nya sama dengan observasi analysis terkini di Neon, lalu hanya menambahkan PIP/PFT/FBP yang belum mempunyai record. Record lama tidak diganti dan sumber baru tidak diminta. JSON audit menyimpan hasil per laga, hash dan ID fetch; FK mengikat provenance metric baru. Sumber tidak lengkap/snapshot hilang dilewati agar LiveStats tetap menjadi cadangan. Setelah commit portal, konflik dihitung terhadap payload LiveStats tersimpan; payload/identitasnya tidak diubah. Backfill tidak menyatakan LiveStats baru diunduh atau seluruh laga diperiksa ulang secara live.
+
+Commit memegang table lock serta menolak lease/run aktif dan impor running yang berumur kurang dari 24 jam. Audit impor yatim yang lebih lama tidak dianggap writer bila tidak ada lease/run aktif, dan tidak diubah statusnya. Dry-run tidak mengambil table lock atau menulis Neon. Gunakan volume snapshot yang lengkap; operasi tidak membersihkan snapshot dan tidak memajukan baseline runner.
+
+Adapter terpisah `statsarena-livestats/1.0.1` memperkaya pertandingan portal yang sudah tersimpan. Panduan pemetaan, status, backfill, retry, cache, dan provenance: [LIVESTATS.md](./LIVESTATS.md). Parser HTML portal tetap memakai versinya sendiri; dataset inti tidak diganti oleh adapter ini.
+
+Optimasi Neon 12 Oktober 2026 memakai migrasi `0005_massive_unicorn`: input identik dengan run sukses terakhir menyimpan ringkasan dan referensi baseline, tanpa fetch/isu duplikat. Metadata dan klasemen identik dilewati; observasi dibatasi sekali sehari. Perubahan, partial/retry, dan archive mempertahankan audit lengkap. Aturan serta hasil dua siklus impor nyata ada di [efisiensi Neon](./NEON_EFFICIENCY.md).
+
 ## Menyiapkan workspace
 
 Gunakan Node.js 22.19 atau lebih baru dan pnpm 12.9.1 (versi package manager dikunci di root). Cheerio 1.2 memerlukan Node.js 22.19 atau lebih baru. Jalankan dari root proyek:
@@ -176,3 +206,11 @@ Parser `0.2.2` melanjutkan aturan preservation `0.2.1` dan memperbaiki discovery
 - [Zod: parse, safeParse, dan tipe hasil](https://zod.dev/basics)
 - [Drizzle: driver PostgreSQL](https://orm.drizzle.team/docs/get-started-postgresql) dan [transaksi](https://orm.drizzle.team/docs/transactions)
 - [pnpm workspaces](https://pnpm.io/workspaces)
+
+## Status detail parser 0.2.3
+
+Status per dataset, penyebab spesifik marker (`actual.invalidFields`), serta backfill metadata tanpa pengunduhan ulang dijelaskan pada [DATA_QUALITY.md](./DATA_QUALITY.md). Guard penggantian box score/PBP/chart/metrik tetap berlaku. Dataset quality dicatat pada JSON audit dan Neon setelah transaksi berhasil.
+
+## Dukungan namespace IBL — 16 Oktober 2026
+
+Parser `0.2.4` memakai identitas sumber terpisah untuk IBF dan IBL sampai importer, lease, incremental, checkpoint, audit/retry, dan dashboard. Input angka tetap IBF; gunakan `IBL:42041` atau URL lengkap untuk IBL. Perhitungan 2P dari FG−3P hanya mengisi kolom yang tidak disediakan dan menyimpan formula/versi/input pada audit serta `stat_derivations` (migrasi `0007_quiet_polaris`). Sel resmi invalid tetap parsial. Adaptasi navigasi, metrik lintas tabel, klasemen kosong, fixture bertanggal, dan batas verifikasi dijelaskan di [SUMBER_DATA_IBL.md](./SUMBER_DATA_IBL.md).

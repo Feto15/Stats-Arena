@@ -1,7 +1,7 @@
 import type { AnyNode } from "domhandler";
 import type { GroupRecord, GroupStandingsData, ParseReport, StandingRowRecord } from "../domain/types.js";
 import { groupSchema, standingRowSchema } from "../domain/types.js";
-import { groupSourceId, sourceEntityId, validateSourceUrl } from "../domain/source-url.js";
+import { groupSourceId, sourceEntityId, validateSourceUrl, sourceNamespace } from "../domain/source-url.js";
 import { cleanText, issue, loadHtml, nullableInteger, normalizedHeader, ParserError, report } from "./common.js";
 import { absoluteSourceUrl } from "./common.js";
 
@@ -63,7 +63,7 @@ function teamIdentity($: ReturnType<typeof loadHtml>, row: AnyNode): { id: strin
 
 export function parseStandingsGroupLinksHtml(html: string, sourceUrl: string): ParseReport<GroupRecord> {
   const url = validateSourceUrl(sourceUrl);
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   const issues = [] as ReturnType<typeof issue>[];
   const groups = new Map<string, GroupRecord>();
   for (const anchor of $("a[href]").toArray()) {
@@ -90,6 +90,12 @@ export function parseStandingsGroupLinksHtml(html: string, sourceUrl: string): P
     }
     groups.set(parsed.data.sourceId, parsed.data);
   }
+  // IBL's unfiltered page contains the current table; round links may be empty.
+  // Keep that exact source scope rather than inventing pool/phase parameters.
+  if (sourceNamespace(sourceUrl) === "IBL" && !url.searchParams.has("poolNumber")) {
+    const current = parseStandingsHtml(html, sourceUrl);
+    if (current.status === "parsed" && current.records[0]) groups.set(current.records[0].group.sourceId, current.records[0].group);
+  }
   if (groups.size === 0) throw new ParserError("Tautan grup standings tidak ditemukan", sourceUrl, "a[href*='/standings'][href*='poolNumber=']");
   return report(sourceUrl, [...groups.values()], issues);
 }
@@ -97,7 +103,7 @@ export function parseStandingsGroupLinksHtml(html: string, sourceUrl: string): P
 export function parseStandingsHtml(html: string, sourceUrl: string): ParseReport<GroupStandingsData> {
   const url = validateSourceUrl(sourceUrl);
   const groupIdentity = groupSourceId(url);
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   const tables = $("table").toArray();
   if (tables.length === 0) throw new ParserError("Tabel klasemen tidak ditemukan", sourceUrl, "table");
 
@@ -105,6 +111,11 @@ export function parseStandingsHtml(html: string, sourceUrl: string): ParseReport
     .map((table) => ({ table, rows: $(table).find("tr").toArray() }))
     .filter((entry) => entry.rows.some((row) => teamHref($, row) !== null));
   if (candidateTables.length === 0) {
+    const hasStandingHeaders = tables.some((table) => {
+      const labels = $(table).find("th").toArray().map((cell) => normalizedHeader($(cell).text()));
+      return labels.includes("TEAM") && labels.includes("GP") && labels.includes("W") && labels.includes("L");
+    });
+    if (hasStandingHeaders) return report<GroupStandingsData>(sourceUrl, [], [issue("error", "STANDINGS_ROWS_EMPTY", "Header klasemen tersedia, tetapi sumber belum memuat baris tim pada tab ini; klasemen tersimpan dipertahankan.", sourceUrl, "table tbody tr")]);
     throw new ParserError("Tidak ada tabel klasemen dengan tautan tim", sourceUrl, "table tr a[href*='/team/']");
   }
   candidateTables.sort((a, b) => b.rows.filter((row) => teamHref($, row)).length - a.rows.filter((row) => teamHref($, row)).length);

@@ -5,7 +5,7 @@ import { sourceEntityId as sourceIdFromUrl } from "../domain/source-url.js";
 import { absoluteSourceUrl, cleanText, idFromElementLink, issue, loadHtml, ParserError, report } from "./common.js";
 
 export function parsePlayersHtml(html: string, sourceUrl: string): ParseReport<PlayerRecord> {
-  const $ = loadHtml(html);
+  const $ = loadHtml(html, sourceUrl);
   const blocks = $(".playerblock").toArray();
   if (blocks.length === 0) throw new ParserError("Blok pemain tidak ditemukan", sourceUrl, ".playerblock");
 

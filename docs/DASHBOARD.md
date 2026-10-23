@@ -1,5 +1,33 @@
 # Dashboard StatsArena
 
+## Rumus analitik bersama — 22 Oktober 2026
+
+Persentase shooting, eFG%, TS%, AST/TO, dan EFF per laga pada daftar pemain memakai `@statsarena/db/analytics-sql`, dari definisi `statsarena-analytics/1.0.0` yang juga digunakan ekspor JSON. Query tetap menghitung dan mengurutkan sebelum pagination serta menjaga scope kompetisi/filter. Tidak ada tambahan kolom UI dalam pekerjaan ini. Metrik baru tersedia pada JSON analisis; panduan serta rumus ada di [ANALYTICS.md](./ANALYTICS.md). Neon tetap menyimpan input resmi dan provenance, tanpa migrasi untuk metrik turunan ini.
+
+## Prioritas metrik tim — 17 Oktober 2026
+
+Detail laga kini menampilkan satu tabel **Metrik tim per pertandingan** untuk BP/2CP/PIP/PFT/FBP. Nilai portal yang available/valid dipilih lebih dahulu; nilai LiveStats terverifikasi menjadi cadangan per tim dan per metrik. Nol eksplisit portal tetap dipilih. Setiap angka membawa label/tautan sumber; selisih menampilkan nilai LiveStats terpisah di sel yang sama dan tercatat pada Review. Agregat kompetisi tidak dipakai untuk mengisi metrik laga dan kedua sumber tidak dijumlahkan. Jika keduanya kosong, tampil `—`.
+
+Tabel tambahan pemain LiveStats tetap memuat plus/minus, starter, PIP dan metrik individu lain. Tabel tim LiveStats terpisah dihapus untuk menghindari dua angka utama pada metrik sama. Nilai LiveStats lama yang masih valid dapat tetap ditampilkan ketika observasi baru gagal, sesuai provenance/status tambahan.
+
+## Laga bermasalah lintas kompetisi — 17 Oktober 2026
+
+Setiap isu pada Review global dan per kompetisi memiliki kotak **Dampak** yang menjelaskan cakupannya: pemain tertentu, satu tim beserta pemainnya, seluruh tambahan laga, kolom tambahan, atau dataset portal seperti peta tembakan/box score/PBP. Penjelasan mengikuti aturan penerimaan parser, bukan asumsi bahwa data lama pasti tersedia. Baris histori portal diberi label **Dampak saat pemeriksaan** agar tidak dibaca sebagai kondisi aktif sekarang. Jumlah starter yang belum terverifikasi tidak diartikan sebagai hilangnya seluruh statistik. Dampak tidak mengubah statistik, status, atau keputusan pemetaan.
+
+Buka `/review?scope=all` atau tombol **Lihat laga bermasalah semua kompetisi** pada Review per kompetisi. Review tanpa pilihan kompetisi juga membuka daftar global. Setiap baris adalah satu laga unik, dengan nama kedua tim, skor/status hasil, nama/ID kompetisi, alasan dari masing-masing sumber, waktu pemeriksaan, serta tautan pertandingan dan Review kompetisi. Tautan selalu membawa referensi kompetisi termasuk namespace IBL; memilih kompetisi pada header keluar dari scope global.
+
+Daftar global membaca masalah **aktif**, bukan histori `validation_issues`: dataset portal `partial/failed` dari `games.detail_quality`, fallback status detail bila metadata belum tersedia, dan tambahan LiveStats non-ready. Dataset unavailable eksplisit portal tidak dianggap kegagalan; pertandingan scheduled dilewati. Setelah observasi pulih, laga hilang bila tidak memiliki masalah lain. Filter sumber/severity/kode diterapkan sebelum pengelompokan dan pagination; kartu menghitung laga unik sesuai filter. Satu laga dapat tercatat pada kedua sumber sehingga jumlah kartu sumber tidak boleh dijumlahkan sebagai total laga.
+
+Scope global hanya untuk pemeriksaan kualitas, tidak menggabungkan statistik atau klasemen kompetisi. Query read-only tidak memulai ingest, menghapus audit, atau memperbarui status hasil pertandingan. Daftar per kompetisi tetap mempertahankan histori portal.
+
+## Review portal dan LiveStats — 16 Oktober 2026
+
+`/review` menggabungkan histori isu portal (`validation_issues`) dan isu LiveStats aktif dari `game_livestats.issues`, dibatasi kompetisi terpilih. Filter `source=portal|livestats`, severity, dan kode isu diterapkan sebelum pengurutan/pagination. Histori portal tetap diberi penanda run, sedangkan LiveStats diberi penanda pengamatan terbaru. Status pertandingan (misalnya selesai) dan status tambahan LiveStats (partial/mismatch/fetch_failed) ditampilkan terpisah.
+
+Kartu menghitung baris isu per sumber serta jumlah laga LiveStats yang perlu diperiksa. Jumlah baris isu tidak sama dengan jumlah laga. Baris LiveStats yang kembali ready otomatis hilang dari daftar aktif tanpa menghapus audit sumber. Perbandingan expected/actual dapat dibuka di baris isu; referensi file snapshot internal tidak dikirim oleh query Review. Tidak ada penyalinan isu ke tabel portal, migrasi, atau pembaruan status pertandingan dalam perubahan ini.
+
+Detail laga kini membaca `game_livestats` secara server-side dalam scope kompetisi/game. Bagian tambahan menampilkan plus/minus, starter/bench, posisi, statistik pemain/tim, status, waktu sumber, tautan, dan alasan review. Nilai portal dan LiveStats dipisahkan; lihat [LIVESTATS.md](./LIVESTATS.md). Migrasi `0008_stiff_blockbuster` diperlukan sebelum query versi ini digunakan.
+
 Status: Tahap 5 selesai dan diverifikasi lokal serta pada Neon StatsArena pada 8 Oktober 2026.
 
 ## Menjalankan
@@ -58,6 +86,30 @@ Loading skeleton, empty state, not found, dan error boundary tersedia. Fixture t
 - Klasemen mengikuti `group_standings` resmi. Poin klasemen tidak disamakan dengan poin basket.
 - Tanggal laga mempertahankan teks mentah sumber karena zona waktu tidak diketahui. Waktu run adalah waktu tersimpan dari `import_runs`.
 
+## Players: statistik dan kelompok kolom
+
+Pembaruan 12 Oktober 2026 mengikuti tabel `/players` IBL Analytic: header dua baris dan garis vertikal pada batas kelompok pemain/tim, penampilan, scoring, rebound/assist, pertahanan, kontrol bola, akurasi, dan efisiensi. Nama pemain tetap terlihat saat tabel digeser horizontal. Nomor baris mengikuti urutan tabel aktif, bukan peringkat resmi Genius Sports.
+
+Kolom utama: GP, MPG, PPG, eFG%, TS%, RPG, APG, SPG, BPG, TOPG, PFPG, FT%, 2P%, 3P%, EFF. Pilihan **Lengkap** menambahkan OREB/DREB per laga, AST/TO, dan FG%. Semua kolom statistik dan nama dapat diurutkan; default PPG menurun. Sorting dan filter diterapkan di PostgreSQL **sebelum pagination**, dengan nilai tidak tersedia di akhir pada kedua arah sorting. Pemain terdaftar tanpa statistik tetap terlihat (GP 0; statistik —).
+
+Pencarian nama, filter tim dari bukti roster, minimum GP, minimum total FGA, dan pilihan kolom tersimpan di URL: `q`, `team`, `minGp`, `minFga`, `columns=extended`, `sort`, `dir`. Pergantian filter/sort mengembalikan halaman tabel ke awal; pagination mempertahankan parameter dan kompetisi. Filter tim tidak mengubah cakupan agregasi pertandingan pemain: seluruh laga selesai pada kompetisi terpilih tetap dihitung. Daftar tim diambil dari kompetisi terpilih; roster kompetisi lain tidak memenuhi filter.
+
+Metrik hasil hitung kini memakai versi `statsarena-analytics/1.0.0` (menggantikan label `players-boxscore-v1`):
+
+| Metrik | Rumus pada laga selesai |
+| --- | --- |
+| FG%, 2P%, 3P%, FT% | `100 × Σmade / Σattempts` masing-masing jenis tembakan |
+| eFG% | `100 × (ΣFGM + 0.5 × Σ3PM) / ΣFGA` |
+| TS% (estimasi) | `100 × ΣPTS / [2 × (ΣFGA + 0.44 × ΣFTA)]` |
+| EFF per laga | Rata-rata `PTS + REB + AST + STL + BLK − (FGA − FGM) − (FTA − FTM) − TO` |
+| AST/TO | `ΣAST / ΣTO` |
+
+Persentase dan rasio memakai total, bukan rata-rata persentase tiap pertandingan. Jika penyebut nol atau salah satu input rumus tidak tersedia pada salah satu laga dalam cakupan, hasilnya `null`/“—”; EFF juga memerlukan semua input pada seluruh laga. Nol yang diketahui tetap nol. Rata-rata statistik dasar tetap memakai nilai tersedia sesuai definisi di atas. TS% menggunakan faktor estimasi 0.44, bukan penghitungan possession dari PBP. EFF adalah hasil hitung StatsArena, bukan angka efisiensi resmi yang diimpor. Rumus ditampilkan pada tooltip header dan label hasil hitung di bawah tabel.
+
+Perubahan ini hanya membaca data Neon yang sudah tersimpan; tidak memerlukan migrasi atau impor HTML ulang. Pengujian query PGlite mencakup rasio tertimbang, estimasi TS%, EFF, input hilang, penyebut nol, urutan sebelum pagination, pencarian literal karakter `%`/`_`, filter minimum, dan isolasi kompetisi/roster.
+
+Usulan statistik tim/pemain berikutnya, pemisahan angka resmi dari hasil hitung StatsArena, serta prasyarat PBP/lineup dicatat dalam [Pengembangan Statistik](./PENGEMBANGAN_STATISTIK.md). eFG%, TS%, EFF, dan AST/TO yang sudah tersedia di dashboard merupakan fitur hasil perhitungan StatsArena dari input box score resmi; status tersedia tidak menjadikannya angka resmi yang diimpor dari sumber.
+
 ## Verifikasi Neon
 
 Tidak ada migrasi schema pada Tahap 4. Kompetisi `49609` diverifikasi pada URL sumber kedua berikut, kemudian diimpor melalui CLI StatsArena dan diimpor ulang:
@@ -99,3 +151,11 @@ Data yang tampil mencerminkan snapshot impor Neon dan tidak otomatis diperbarui 
 Overview membaca `sync_runs`, lease aktif, dan `source_fetched_at` dalam scope kompetisi yang dipilih. Tampilkan hasil run, waktu pemeriksaan, waktu HTML sumber, jadwal berikutnya bila tersedia, hitungan penulisan, serta tautan halaman gagal/parsial. Dashboard tetap hanya membaca Neon; membuka halaman tidak memulai impor atau runner. `runner watch` berjalan sebagai proses CLI terpisah selama proses itu aktif.
 
 Migrasi `0003_sync_operations` diperlukan sebelum query Overview Tahap 6 dipakai. Migrasi itu sudah diterapkan pada Neon StatsArena saat perbaikan review 8 Oktober 2026; Overview kembali membaca data dan menampilkan keadaan belum ada run operasional. Hasil impor dan pemeriksaan status setelah runner ada di [verifikasi Neon](./NEON_VERIFICATION.md) dan [panduan operasi](./SYNC_OPERATIONS.md). Pada dataset saat ini, 49607 memiliki 34 laga complete dan 49609 memiliki 22 complete serta dua scheduled.
+
+## Kelengkapan per dataset
+
+Detail laga menampilkan status ringkasan, box score, PBP, chart, dan metrik resmi secara terpisah. Alasan serta nilai expected/actual tampil pada panel dan Review. Isu detail yang sudah terselesaikan tetap ada pada histori Review, tetapi tidak disebut isu current. Lihat [DATA_QUALITY.md](./DATA_QUALITY.md).
+
+## Filter sumber IBL — 16 Oktober 2026
+
+Filter `?competition=IBL:42041` memilih namespace IBL; filter angka tetap IBF. Pilihan kompetisi dan query menggunakan source beserta ID, sedangkan ID tim/pemain tetap mengikuti kompetisi yang dipilih. Tautan publik IBF/IBL divalidasi dengan helper sumber bersama. Detail laga membaca metadata `stat_derivations`; penjelasan tabel menyebut perhitungan 2P dari FG−3P ketika kolom sumber tidak disediakan. Sampel IBL belum diimpor ke Neon dalam pekerjaan ini, sehingga pilihan hanya muncul setelah kompetisinya diimpor.

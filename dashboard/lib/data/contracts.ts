@@ -1,7 +1,9 @@
+import type { DetailQuality } from "@statsarena/db/data-quality";
 import type {
   competitionGroups,
   competitions,
   games,
+  gameLiveStats,
   groupStandings,
   importRuns,
   syncRuns,
@@ -75,6 +77,15 @@ export type PlayerListItem = Pick<PlayerRow, "id" | "sourcePlayerId" | "name" | 
   fieldGoalPercentage: number | null;
   threePointPercentage: number | null;
   freeThrowPercentage: number | null;
+  turnoversPerGame: number | null;
+  personalFoulsPerGame: number | null;
+  offensiveReboundsPerGame: number | null;
+  defensiveReboundsPerGame: number | null;
+  twoPointPercentage: number | null;
+  effectiveFieldGoalPercentage: number | null;
+  trueShootingPercentage: number | null;
+  efficiencyPerGame: number | null;
+  assistTurnoverRatio: number | null;
   teamNames: string[];
 };
 
@@ -96,9 +107,11 @@ export type StandingListItem = Pick<
 
 export type ReviewIssueListItem = Pick<
   ValidationIssueRow,
-  "id" | "severity" | "code" | "message" | "fieldPath" | "sourceUrl" | "createdAt"
+  "id" | "severity" | "code" | "message" | "fieldPath" | "sourceUrl" | "createdAt" | "expected" | "actual"
 > & {
-  game: Pick<GameRow, "id" | "sourceGameId"> | null;
+  issueSource: "portal" | "livestats";
+  supplementStatus: RowOf<typeof gameLiveStats>["status"] | null;
+  game: Pick<GameRow, "id" | "sourceGameId" | "status"> | null;
   importRun: Pick<ImportRunRow, "id" | "mode" | "status" | "startedAt" | "finishedAt"> | null;
   isLatestRun: boolean;
 };
@@ -195,10 +208,12 @@ export type TeamStatColumns = Pick<
 >;
 
 export type GameTeamStatsItem = TeamStatColumns & {
+  statDerivations: TeamStatsRow["statDerivations"];
   team: Pick<TeamRow, "id" | "sourceTeamId" | "name">;
 };
 
 export type GamePlayerStatsItem = StatColumns & {
+  statDerivations: PlayerStatsRow["statDerivations"];
   player: Pick<PlayerRow, "id" | "sourcePlayerId" | "name">;
   team: Pick<TeamRow, "id" | "sourceTeamId" | "name">;
 };
@@ -232,7 +247,7 @@ export type OfficialGameMetricItem = Pick<OfficialMetricRow,
 > & { team: Pick<TeamRow, "id" | "sourceTeamId" | "name"> };
 
 export type GameValidationIssueItem = Pick<ValidationIssueRow,
-  "id" | "severity" | "code" | "message" | "fieldPath" | "sourceUrl" | "createdAt"
+  "id" | "severity" | "code" | "message" | "fieldPath" | "sourceUrl" | "createdAt" | "expected" | "actual"
 >;
 
 export type OfficialCompetitionMetricItem = Pick<OfficialMetricRow,
@@ -247,6 +262,8 @@ export type GameDetailFilters = {
 };
 
 export type GameDetail = GameListItem & {
+  liveStats: Pick<RowOf<typeof gameLiveStats>, "status" | "payload" | "sourceUrl" | "pageUrl" | "sourceFetchedAt" | "lastAttemptAt" | "issues"> | null;
+  datasetQuality: DetailQuality | null;
   homeTeamStats: GameTeamStatsItem | null;
   awayTeamStats: GameTeamStatsItem | null;
   playerStats: GamePlayerStatsItem[];
@@ -295,10 +312,41 @@ export interface PlayerSummary {
 
 export interface ReviewSummary {
   totalIssues: number;
+  sourceCounts: { portal: number; livestats: number };
+  liveStatsGames: number;
   issueTypes: string[];
   latestRun: ImportRunListItem | null;
   runs: ImportRunListItem[];
   issues: PageResult<ReviewIssueListItem>;
+}
+
+export interface ActiveReviewIssue {
+  source: "portal" | "livestats";
+  status: string;
+  code: string;
+  message: string;
+  sourceUrl: string | null;
+}
+
+export interface GlobalReviewSummary {
+  totalGames: number;
+  competitions: number;
+  portalGames: number;
+  liveStatsGames: number;
+  issueTypes: string[];
+  games: PageResult<{
+    id: string;
+    sourceGameId: string;
+    status: GameRow["status"];
+    homeName: string | null;
+    awayName: string | null;
+    homeScore: number | null;
+    awayScore: number | null;
+    competitionName: string;
+    competitionRef: string;
+    checkedAt: Date;
+    issues: ActiveReviewIssue[];
+  }>;
 }
 
 export type DashboardDataState<T> =

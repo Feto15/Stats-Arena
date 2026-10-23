@@ -1,6 +1,6 @@
 # Cache HTML dan retry StatsArena
 
-Versi parser pada pengukuran cache historis di bawah: `statsarena-parser/0.1.3` (7 Oktober 2026). Versi parser saat ini adalah `statsarena-parser/0.2.2`; runner dan lock operasional dijelaskan di [SYNC_OPERATIONS.md](./SYNC_OPERATIONS.md).
+Versi parser pada pengukuran cache historis di bawah: `statsarena-parser/0.1.3` (7 Oktober 2026). Versi parser saat ini adalah `statsarena-parser/0.2.4`; runner dan lock operasional dijelaskan di [SYNC_OPERATIONS.md](./SYNC_OPERATIONS.md).
 
 ## Alur sinkronisasi
 
@@ -16,6 +16,8 @@ Cache menggunakan URL penuh sebagai kunci, sehingga kompetisi/grup/parameter poo
 ## Batas usia default
 
 Kebijakan TTL di bawah berlaku untuk mode standar. Mode `--incremental` mengambil ulang fixture, memilih laga melalui hash fixture/status keberhasilan di Neon, dan melewati detail lama yang valid tanpa membaca cache detail tersebut. Detail baru/berubah/active/retry disegarkan melalui HTTP; bootstrap penanda dan versi parser memakai validasi cache yang sudah ada. TTL metadata kompetisi tetap berlaku. Lihat [mode incremental](./SYNC_OPERATIONS.md#mode-incremental-hanya-detail-laga-baru-atau-berubah).
+
+Sejak parser `0.2.3`, seleksi laga gagal/parsial pada incremental juga membaca `games.detail_quality`: jaringan 5–60 menit, masalah struktur satu jam, anomali sumber/identitas 24 jam. Ini jeda antarpemeriksaan pertandingan, terpisah dari retry HTTP dalam satu fetch di bawah. Retry manual, perubahan fixture, live/unknown, parser upgrade, dan mode standar dapat melewatinya. Lihat [DATA_QUALITY.md](./DATA_QUALITY.md).
 
 | Jenis halaman | TTL | Environment opsional |
 | --- | --- | --- |
@@ -66,6 +68,24 @@ Runner Tahap 6 mengambil lock direktori snapshot dan lock kompetisi lokal; sinkr
 - Kegagalan refresh ditandai meskipun snapshot lama masih ada. Proses berikutnya mencoba jaringan lagi; tidak otomatis menyamarkan error sebagai keberhasilan cache lama.
 
 ## Audit dan provenance
+
+### Mendiagnosis durasi proses
+
+Pengujian penambahan final Riau dari baseline sebelum final dicatat dalam [laporan 18 Oktober 2026](./INGEST_PERFORMANCE_RIAU_2026-10-18.md). Seluruh 40 laga lama dilewati; dua final memerlukan sekitar 98 detik per kompetisi, dengan sekitar 90 detik pada pipeline HTML dan 3–4 detik pada importer Neon. Kegagalan HTTP 500 serta template PBP kosong dilaporkan terpisah dari waktu benchmark dan proses retry. Tidak ada perubahan kebijakan produksi pada profiling tersebut.
+
+Sync/retry/runner melaporkan `timings` per tahap. `pipelineMs` mencakup pengambilan HTML, antrean/retry, pembacaan gzip, dan parsing; `portalImportMs` mengukur importer Neon; `liveStatsMs` mencakup sinkronisasi tambahan; audit, maintenance, dan katalog memiliki waktu tersendiri. Waktu HTTP individual ada pada `fetches[].attempts`; jangan menjumlahkannya sebagai durasi total karena request dapat berjalan paralel.
+
+Incremental tetap memilih laga dengan `detail_parser_version` lama. `selected_parser_changed` bukan penemuan laga baru: snapshot perlu diproses ulang sebelum versi valid terbaru disimpan setelah commit. Cache yang kedaluwarsa/belum lolos parser saat ini dapat memerlukan HTTP lagi. Menghapus cache dan Neon memperbesar pekerjaan bootstrap, sehingga bukan langkah awal diagnosis.
+
+Pada Mac, sleep menghentikan timer timeout dan heartbeat proses. Log sleep/wake serta waktu mulai/akhir attempt diperlukan untuk membedakan sumber lambat dari proses lokal yang disuspensi. Lease kedaluwarsa tetap harus ditolak; jangan menghapus pemeriksaan lease atau mengklaim transaksi berhasil. Untuk proses manual, jaga laptop terjaga selama CLI berjalan, misalnya:
+
+```sh
+caffeinate -i pnpm --dir ingest run cli sync --competition 49626 --incremental
+```
+
+Untuk operasi rutin gunakan runner VPS/Coolify yang sudah disiapkan. Perintah di atas hanya mencegah idle sleep selama proses; bukan bukti deployment VPS dan tidak menjamin proses bertahan ketika laptop ditutup atau dihentikan.
+
+Retensi lokal dijelaskan di [STORAGE_RETENTION.md](./STORAGE_RETENTION.md). Runner membandingkan hash dataset hasil parse untuk audit ringkas dan menghapus HTML lama hanya bila tidak dilindungi oleh index aktif, dua versi valid, review yang belum selesai, atau arsip. Metadata provenance tetap tersedia; histori hash tidak menjamin blob HTML lama masih disimpan selamanya.
 
 `fetches[].retrievalMode` membedakan:
 

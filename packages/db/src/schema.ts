@@ -1,8 +1,11 @@
+import type { DetailQuality } from "./data-quality.js";
+import type { LiveStatsSupplement, LiveStatsStatus, LiveStatsIssue } from "./livestats.js";
 import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -177,6 +180,11 @@ export const importRuns = statsarena.table(
     mode: importRunMode("mode").notNull(),
     status: importRunStatus("status").notNull().default("running"),
     parserVersion: text("parser_version").notNull(),
+    inputHash: varchar("input_hash", { length: 64 }),
+    auditKind: varchar("audit_kind", { length: 16 }).$type<"full" | "summary">().notNull().default("full"),
+    baselineImportRunId: uuid("baseline_import_run_id"),
+    latestRequestedAt: timestamp("latest_requested_at", { withTimezone: true }),
+    latestSourceFetchedAt: timestamp("latest_source_fetched_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     recordCounts: jsonb("record_counts").$type<Record<string, number>>().notNull().default({}),
@@ -185,7 +193,9 @@ export const importRuns = statsarena.table(
   },
   (table) => [
     index("import_runs_comp_started_idx").on(table.competitionId, table.startedAt),
-    index("import_runs_status_idx").on(table.status)
+    index("import_runs_status_idx").on(table.status),
+    foreignKey({ name: "import_runs_baseline_fk", columns: [table.baselineImportRunId], foreignColumns: [table.id] }).onDelete("restrict"),
+    check("import_runs_audit_kind_ck", sql`(${table.auditKind} = 'full' and ${table.baselineImportRunId} is null) or (${table.auditKind} = 'summary' and ${table.baselineImportRunId} is not null)`)
   ]
 );
 
@@ -288,6 +298,7 @@ export const games = statsarena.table(
     scheduledAtRaw: text("scheduled_at_raw"),
     venue: text("venue"),
     fixtureHash: varchar("fixture_hash", { length: 64 }),
+    detailQuality: jsonb("detail_quality").$type<DetailQuality>(),
     detailSyncStatus: parseStatus("detail_sync_status").notNull().default("partial"),
     detailParserVersion: text("detail_parser_version"),
     detailSyncedAt: timestamp("detail_synced_at", { withTimezone: true }),
@@ -305,6 +316,30 @@ export const games = statsarena.table(
     check("games_distinct_teams_ck", sql`${table.homeTeamId} is null or ${table.awayTeamId} is null or ${table.homeTeamId} <> ${table.awayTeamId}`)
   ]
 );
+
+export const gameLiveStats = statsarena.table("game_livestats", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  gameId: uuid("game_id").notNull().references(() => games.id, { onDelete: "cascade" }),
+  status: varchar("status", { length: 24 }).$type<LiveStatsStatus>().notNull(),
+  sourceUrl: text("source_url").notNull(),
+  pageUrl: text("page_url").notNull(),
+  parserVersion: text("parser_version").notNull(),
+  payload: jsonb("payload").$type<LiveStatsSupplement>(),
+  payloadHash: varchar("payload_hash", { length: 64 }),
+  sourceHash: varchar("source_hash", { length: 64 }),
+  sourceFetchedAt: timestamp("source_fetched_at", { withTimezone: true }),
+  snapshotPath: text("snapshot_path"),
+  portalFingerprint: varchar("portal_fingerprint", { length: 64 }).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }).notNull(),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull(),
+  issues: jsonb("issues").$type<LiveStatsIssue[]>().notNull().default([]),
+  createdAt: now(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [
+  uniqueIndex("game_livestats_game_uq").on(table.gameId),
+  index("game_livestats_retry_idx").on(table.nextAttemptAt),
+  check("game_livestats_status_ck", sql`${table.status} in ('ready','partial','unavailable','fetch_failed','parse_failed','mismatch')`)
+]);
 
 export const groupStandings = statsarena.table(
   "group_standings",
@@ -332,7 +367,10 @@ export const groupStandings = statsarena.table(
   ]
 );
 
+export type StatDerivations = Record<string, { formula: string; version: string; inputs: Record<string, number> }>;
+
 const statColumns = () => ({
+  statDerivations: jsonb("stat_derivations").$type<StatDerivations>().notNull().default({}),
   fieldGoalsMade: integer("field_goals_made"),
   fieldGoalsAttempted: integer("field_goals_attempted"),
   twoPointsMade: integer("two_points_made"),
@@ -534,6 +572,7 @@ export const schema = {
   syncRuns,
   syncLeases,
   games,
+  gameLiveStats,
   groupStandings,
   teamGameStats,
   playerGameStats,

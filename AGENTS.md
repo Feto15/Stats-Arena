@@ -36,7 +36,7 @@ Aturan data utama:
 - Shot chart dapat memuat foul dan turnover; hanya marker 2PT/3PT yang menjadi tembakan. BP dan 2CP tidak dapat disimpulkan dari total box score pemain saja.
 - Play by play mempertahankan urutan sumber, kelas aksi, label periode, waktu mentah, skor berjalan, dan provenance. Event dengan waktu sama tetap dibedakan oleh `source_sequence`; identitas pemain/tim hanya diisi bila ada bukti sumber eksplisit.
 - Koordinat shot chart disimpan mentah serta sebagai persen kanvas (`left` menjadi X, `top` menjadi Y). Orientasi/rotasi lapangan Genius Sports tidak diketahui, jadi dashboard menampilkan kanvas sumber tanpa mengarang rotasi atau skala lapangan.
-- BP/2CP adalah angka resmi dengan scope `game` atau `competition`. Team Analysis menyediakan 2CP laga; Team Statistics menyediakan BP/2CP kompetisi beserta GP sampel. Ketiadaan BP per laga disimpan unavailable/null, bukan dihitung dari statistik pemain.
+- BP/2CP adalah angka resmi dengan scope `game` atau `competition`. Team Analysis menyediakan 2CP/PIP/PFT/FBP laga bila header tersedia; Team Statistics menyediakan BP/2CP kompetisi beserta GP sampel. Ketiadaan BP per laga disimpan unavailable/null, bukan dihitung dari statistik pemain.
 - Tabel rinci Tahap 5 adalah `play_by_play_events`, `shots`, dan `team_official_metrics`; ketiganya membawa referensi fetch/URL dan versi parser. Penggantian dataset rinci pertandingan dilakukan dalam transaksi dan melewati data identik.
 - Jangan mengganti PBP ketika jumlah event berkurang tanpa bukti koreksi penghapusan. Chart yang berbeda dari FGA/FGM resmi menjadi partial; gunakan total tim tersimpan bila box score baru gagal. Sel metrik hilang/invalid berbeda dari unavailable eksplisit. Guard importer juga berlaku untuk JSON audit; lihat aturan parser `0.2.1` di `docs/INGEST.md`.
 - Pertahankan waktu mentah ketika zona waktu tidak diketahui. Jangan mengarang informasi starter, roster, atau hubungan pemain–tim yang belum didukung sumber.
@@ -74,7 +74,19 @@ pnpm --dir ingest run cli runner once --incremental
 pnpm --dir ingest run cli sync --competition 49607 --incremental
 pnpm --dir ingest run cli runner watch --incremental --interval-seconds 900
 pnpm --dir ingest run cli runner watch --interval-seconds 900
+pnpm --dir ingest run cli runner service
 pnpm --dir ingest run cli retry --competition 49607 --dry-run
+pnpm --dir ingest run cli quality backfill --dry-run
+pnpm --dir ingest run cli quality backfill
+pnpm --dir ingest run cli metrics backfill --dry-run
+pnpm --dir ingest run cli metrics backfill
+pnpm --dir ingest run cli catalog rebuild
+pnpm --dir ingest run cli analysis export --competition 49607 --dry-run
+pnpm --dir ingest run cli analysis export --competition 49607
+pnpm --dir ingest run cli storage compact --dry-run
+pnpm --dir ingest run cli storage compact
+pnpm --dir ingest run cli storage compact-neon --dry-run
+pnpm --dir ingest run cli storage compact-neon
 ```
 
 Periksa `--help` sebelum menjalankan CLI. `--snapshot-only` membutuhkan snapshot kerja lokal yang sudah tersedia; fixture test tetap disertakan dalam repository. `--dry-run` menulis audit lokal dan tidak menulis record aplikasi atau audit ke database. Sinkronisasi default memakai cache HTML tervalidasi dengan TTL; `--refresh` melewati TTL melalui HTTP dan tidak bisa digabung dengan `--snapshot-only`. Runner memakai daftar aktif `ingest/config/competitions.json`, lock proses lokal, dan lease Neon untuk impor. Hentikan `runner watch` dengan Ctrl-C atau SIGTERM. Retry maksimal 25 URL gagal/parsial dari audit. Lihat [docs/FETCH_OPTIMIZATION.md](./docs/FETCH_OPTIMIZATION.md) dan [docs/SYNC_OPERATIONS.md](./docs/SYNC_OPERATIONS.md).
@@ -106,7 +118,15 @@ CLI dan konfigurasi migrasi memuat `.env` dari root StatsArena meskipun dijalank
 
 ## Code style guidelines
 
-Mode `--incremental` membutuhkan migrasi `0004_incremental_sync` dan membaca state Neon, termasuk saat dry-run. Fixture selalu diperbarui; detail lama valid dilewati berdasarkan `games.fixture_hash/detail_sync_status/detail_parser_version/detail_synced_at`. Hash memakai observasi fixture asli, bukan field hasil gabungan summary. Gagal/parsial dan rollback harus tetap eligible pada siklus berikutnya; jangan memajukan penanda sukses sebelum transaksi commit. Metadata kompetisi tetap memakai TTL. Bootstrap impor lama dilakukan sekali melalui cache valid. Mode ini tidak mendeteksi koreksi detail yang tidak mengubah fixture; gunakan mode standar/`--refresh` secara berkala. Tidak bisa digabung dengan `--refresh` atau `--snapshot-only`.
+Deployment runner menggunakan `compose.runner.yaml` di Coolify/VPS; dashboard tetap di Vercel. `runner service` memakai incremental rutin dan standard harian, memajukan `.runner-service.json` hanya setelah seluruh kompetisi aktif sukses; partial/failure/dry-run/stop tidak memajukan penanda full. Volume snapshot/audit harus permanen; lock dan lease tetap berlaku. Healthcheck menunjukkan liveness, bukan keberhasilan impor. CI memeriksa kode/image; jangan menyatakan deployment VPS atau build Docker berhasil tanpa verifikasi nyata. Lihat [docs/RUNNER_DEPLOYMENT.md](./docs/RUNNER_DEPLOYMENT.md).
+
+Maintenance Neon `storage compact-neon` hanya menghapus fetch sukses/parsed yang tergantikan dan tidak dirujuk. Pertahankan seluruh FK sumber, baseline summary, run terbaru, dua observasi terbaru per URL/resource/kompetisi, retry/error/partial, isu review, dan arsip yang dibuktikan metadata JSON lokal. Tolak writer aktif atau FK yang belum dikenali; backup harus tersimpan sebelum penghapusan, lalu bandingkan seluruh isi tabel domain dalam transaksi. Jangan menjalankannya tanpa metadata arsip proyek yang lengkap. Ini operasi eksplisit terpisah dari retensi lokal dan runner; run/isu belum dipangkas menurut umur. Lihat [docs/NEON_EFFICIENCY.md](./docs/NEON_EFFICIENCY.md).
+
+Efisiensi Neon membutuhkan migrasi `0005_massive_unicorn`. Importer hanya memakai audit summary jika input/hash/parser identik dengan run sukses tepat sebelumnya pada kompetisi yang sama, halaman bersih tanpa diagnostik retry, dan tidak ada warning/error. Referensi baseline harus langsung menuju audit full dan dilindungi FK; jangan menghapus baseline/provenance. Archive memaksa audit full. Query operasional memakai baseline untuk isu serta observasi run terbaru untuk waktu sumber. Metadata/klasemen identik tidak ditulis ulang; `lastSeenAt` peserta yang diamati diperbarui paling sering sekali per 24 jam. URL global peserta stabil terhadap perbedaan scope kompetisi; membership tetap menyimpan URL sumber tepat. Lihat [docs/NEON_EFFICIENCY.md](./docs/NEON_EFFICIENCY.md).
+
+Runner memakai `--audit-mode auto`; `sync`/`retry` memakai `full` secara default. Hash hasil parse per dataset hanya menjadi baseline setelah impor sukses. Siklus identik menyimpan summary, perubahan sebagian menyimpan delta, kegagalan mempertahankan full; summary/delta bukan payload langsung importer. Pembersihan lokal mempertahankan dua versi valid, audit/HTML untuk review belum selesai, dan arsip eksplisit; jangan menghapus hash/provenance/statistik Neon. Katalog `.audit-storage.json`, index aktif, checkpoint fixture, dan lock harus dipertahankan. Pembersihan otomatis maksimal sekali per 24 jam setelah impor sukses; dry-run tidak memajukan baseline atau menghapus file. Lihat [docs/STORAGE_RETENTION.md](./docs/STORAGE_RETENTION.md).
+
+Mode `--incremental` memakai migrasi `0004_incremental_sync` dan `0006_magenta_khan`; terapkan seluruh migrasi. Mode ini membaca state Neon, termasuk saat dry-run. Fixture selalu diperbarui; detail lama valid dilewati berdasarkan `games.fixture_hash/detail_sync_status/detail_parser_version/detail_synced_at/detail_quality`. Hash memakai observasi fixture asli, bukan field hasil gabungan summary. Gagal/parsial tetap eligible sesuai jadwal retry; rollback harus eligible tanpa cooldown lama. Jangan memajukan penanda sukses sebelum transaksi commit. Metadata kompetisi tetap memakai TTL. Bootstrap impor lama dilakukan sekali melalui cache valid. Mode ini tidak mendeteksi koreksi detail yang tidak mengubah fixture; gunakan mode standar/`--refresh` secara berkala. Tidak bisa digabung dengan `--refresh` atau `--snapshot-only`.
 
 - Gunakan TypeScript strict, tipe domain yang eksplisit, dan `unknown` dengan validasi untuk data eksternal. Hindari `any` dan assertion yang melewati pemeriksaan data.
 - Pisahkan fetcher, parser, validator, perhitungan metrik, dan importer. Parser adalah fungsi deterministik dari HTML ke record dan tidak melakukan fetch atau query database.
@@ -123,7 +143,13 @@ Mode `--incremental` membutuhkan migrasi `0004_incremental_sync` dan membaca sta
 - Untuk dashboard, gunakan Server Components secara default dan modul database server-only. Client Components menerima data terbatas dengan tipe eksplisit.
 - Semua query dashboard harus memiliki scope kompetisi yang benar. Filter utama tersimpan di URL; jangan mencampurkan data antar kompetisi atau mengagregasi klasemen grup bersama laga eliminasi tanpa definisi.
 
+Katalog `ingest/config/competitions_catalog.json` memakai format ringkas: identitas kompetisi, audit portal terbaru, dan `liveStatsFiles` (ID laga ke file JSON gzip). Diperbarui otomatis oleh discover/sync/retry/runner serta `livestats sync/backfill`. Pertahankan anotasi manual; cocokkan namespace/compId/matchId/datapath sebelum menautkan cache. File LiveStats current/attempt bukan bukti impor sukses. `catalog rebuild` membaca audit/cache lokal tanpa jaringan/Neon dan membuang referensi file LiveStats yang hilang. Compose menyimpan katalog runtime di volume audit melalui `STATSARENA_CATALOG_PATH`, karena image read-only. Lihat [docs/COMPETITION_CATALOG.md](./docs/COMPETITION_CATALOG.md).
+
+Katalog juga menautkan JSON analisis melalui `analysisFile`; preview tidak menggantikan tautan utama. `analysis export` tanpa dry-run memperbarui tautan tersebut. `discover`/`catalog rebuild` hanya menautkan file analisis yang sudah ada, tanpa menghitung metrik baru. TS%/TOV%/attempt rate lawan masih rencana pada [docs/PENGEMBANGAN_STATISTIK.md](./docs/PENGEMBANGAN_STATISTIK.md); eFG% lawan sudah tersedia.
+
 ## Testing instructions
+
+Rumus analitik bersama berada di `@statsarena/db/analytics`; query PostgreSQL memakai `@statsarena/db/analytics-sql` dari definisi yang sama. Versi analitik independen dari versi parser. Sync/retry/runner menulis `ingest/audit/analysis/<key>.json`; dry-run/snapshot menulis preview. Ekspor offline `analysis export` membaca audit lokal full/delta/summary, tanpa jaringan/Neon; dry-run perintah ini hanya melaporkan rencana. Pertahankan input valid, scope game IDs, null, presisi menit, dan agregasi dari total; jangan menambah rumus terpisah di UI/konten. Tidak ada kolom turunan Neon baru. Lihat [docs/ANALYTICS.md](./docs/ANALYTICS.md).
 
 Pilih pemeriksaan sesuai bagian yang berubah. Tambahkan test untuk parsing, normalisasi, rumus, dan perilaku impor yang dapat menghasilkan kesalahan data tanpa terlihat di UI. Perubahan dokumen saja cukup diperiksa konsistensi isi dan tautannya.
 
@@ -161,3 +187,19 @@ Pada fondasi Tahap 3, jalankan lint, typecheck, dan build, lalu periksa keenam r
 - Pastikan file snapshot/output tetap di direktori yang ditetapkan; hindari path traversal dan nama file yang berasal langsung dari teks sumber.
 - Gunakan hak akses database sesuai fungsi: migrasi, importer, dan dashboard. Operasi penghapusan/reset harus terbatas pada data uji yang memang ditetapkan untuk itu.
 - Sebelum commit, periksa diff dan file baru agar tidak menyertakan kredensial, cache, dependensi, snapshot besar, atau output build yang tidak dimaksudkan untuk repository.
+
+## Status detail dan retry (parser 0.2.3)
+
+Gunakan `games.detail_quality` untuk membedakan status setiap dataset dari hasil pertandingan. `partial` wajib membawa alasan; marker invalid menyimpan `actual.invalidFields`. Incremental menghormati jeda jaringan 5–60 menit, struktur parser satu jam, anomali sumber 24 jam; fixture berubah/parser upgrade/live/retry manual tetap eligible. Jeda berlaku untuk seleksi laga, bukan jadwal HTTP independen setiap resource. Kegagalan transaksi tidak boleh mempertahankan cooldown lama yang menghambat pemulihan. `datasetQuality` tidak termasuk fingerprint statistik. Backfill lewat `quality backfill --dry-run` lalu tanpa dry-run hanya mengisi metadata null dari observasi audit tersimpan; tolak writer aktif. Lihat `docs/DATA_QUALITY.md`.
+
+## Namespace IBF/IBL (parser 0.2.4)
+
+### Prioritas metrik tim (parser 0.2.5, LiveStats 1.0.1)
+
+Team Analysis juga membaca PIP/PFT/FBP laga berdasarkan header bila tersedia. Kolom yang tidak ada tidak diisi nol; sel kosong/invalid atau dataset yang kehilangan metrik tersimpan mempertahankan data valid sebelumnya. BP/2CP kompetisi tetap terpisah. Dashboard memilih nilai portal laga yang available/valid terlebih dahulu, lalu baris LiveStats terverifikasi sebagai cadangan per tim/per metrik. Tampilkan sumber per angka dan kedua nilai saat berbeda; jangan menjumlahkan kedua sumber. PIP/FBP/2CP pemain tetap dari LiveStats. Konflik BP/2CP/PIP/PFT/FBP laga dicatat pada isu LiveStats.
+
+`metrics backfill` hanya menambahkan PIP/PFT/FBP yang belum tersimpan, menggunakan snapshot yang hash-nya cocok dengan observasi analysis terbaru di Neon. Tidak ada fetch baru atau perubahan box score/PBP/shots. Jalankan dry-run dahulu; commit memakai table lock, menolak lease/run aktif dan audit impor running dalam 24 jam terakhir. Audit impor yatim lama tetap disimpan tanpa diubah; lease/run aktif selalu memblokir tanpa batas umur. Pertahankan FK fetch, hash, provenance serta payload LiveStats; perbedaan terhadap payload tersimpan dicatat sebagai isu. Tidak diperlukan migrasi baru karena kolom kode metrik berupa teks.
+
+Pelengkap JSON LiveStats menggunakan adapter terpisah `statsarena-livestats/1.0.1`, bukan mengganti parser portal. Migrasi `0008_stiff_blockbuster` menambah `game_livestats`; status/provenance tambahan independen dari kualitas portal. ID lokal tidak menjadi ID global: cocokkan tim, nomor, nama eksplisit, dan statistik dasar; baris meragukan dilewati dan dicatat. Jangan mengganti box score/PBP/shots portal. Setiap baris tambahan membawa provenance; field/baris yang hilang mempertahankan baris valid sebelumnya. CLI sync/retry/runner memperbarui tambahan setelah commit portal, termasuk ketika detail portal dilewati incremental. Data lama diisi melalui `livestats backfill --dry-run`, lalu `livestats backfill`, hanya untuk kompetisi tersimpan. Retry satu laga memakai `livestats sync --competition <ref> --game <id> --refresh`. Snapshot hash immutable pada subdirektori `livestats` ikut volume permanen, dengan perlindungan seluruh referensi payload Neon. Lihat [docs/LIVESTATS.md](./docs/LIVESTATS.md).
+
+Gunakan helper bersama `@statsarena/db/source`. Angka tanpa prefix tetap IBF; IBL memakai URL lengkap atau `IBL:<ID>`. Database memakai ID mentah dengan `source=genius_sports` (IBF lama) atau `genius_sports:IBL`. Query, lease, retry, checkpoint, audit/hash, dan tautan sumber wajib menjaga scope namespace; jangan mengubah identitas IBF lama. Payload JSON lintas namespace ditolak sebelum menulis. Kolom 2P yang tidak disediakan dapat diturunkan dari FG−3P hanya bila input valid, dengan rumus/versi/input tersimpan pada `statDerivations`/`stat_derivations` (migrasi `0007_quiet_polaris`). Sel resmi kosong/invalid tidak ditambal. GP/metrik yang tidak disediakan tetap null; tabel BP/2CP terpisah digabung dengan ID tim. Lihat [SUMBER_DATA_IBL.md](./docs/SUMBER_DATA_IBL.md) untuk pola HTML terverifikasi dan batas sampel.

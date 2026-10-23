@@ -73,7 +73,7 @@ test("pipeline skips scheduled pages, fetches when complete, and distinguishes t
     assert.equal(complete.data.matches[0]?.boxScore?.players.length, 24);
     assert.equal(complete.data.matches[0]?.playByPlay?.records.length, 548);
     assert.equal(complete.data.matches[0]?.shotChart?.records.length, 81);
-    assert.equal(complete.data.matches[0]?.officialMetrics?.records.length, 4);
+    assert.equal(complete.data.matches[0]?.officialMetrics?.records.length, 10);
     assert.equal(complete.data.teamOfficialMetrics?.records.length, 54);
     assert.equal(complete.parseCounts["scheduledMatches"], 0);
     const pbpUrl = complete.fetches.find((entry) => entry.resource === "playbyplay")?.requestUrl;

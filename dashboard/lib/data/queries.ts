@@ -1,6 +1,12 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, like, or, sql, type SQL } from "drizzle-orm";
+import { BASE_STAT_FIELDS, type MetricField } from "@statsarena/db/analytics";
+import { metricSql } from "@statsarena/db/analytics-sql";
+import { competitionReference, SOURCE_NAMES } from "@statsarena/db/source";
+import { enrichQualityIssue } from "@statsarena/db/data-quality";
+import { and, asc, count, desc, eq, inArray, isNotNull, ilike, exists, gte, like, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
+import { getReviewIssues, type ReviewFilters } from "./review";
+export type { ReviewFilters } from "./review";
 import type { StatsArenaDatabase } from "@statsarena/db";
 import {
   competitionGroups,
@@ -8,6 +14,7 @@ import {
   competitionTeams,
   competitions,
   games,
+  gameLiveStats,
   groupStandings,
   importRuns,
   officialTeamMetrics,
@@ -36,7 +43,6 @@ import type {
   PageResult,
   PlayerListItem,
   PlayerSummary,
-  ReviewIssueListItem,
   ReviewSummary,
   SourceFetchSummary,
   StandingListItem,
@@ -48,7 +54,7 @@ import type {
 const PAGE_SIZE = 25;
 const MAX_PAGE = 10_000;
 const pageSchema = z.coerce.number().int().min(1).max(MAX_PAGE).catch(1);
-const sourceCompetitionIdSchema = z.string().trim().regex(/^[1-9]\d{0,31}$/);
+const sourceCompetitionIdSchema = z.string().trim().regex(/^(?:IBL:)?[1-9]\d{0,31}$/);
 const sourceEntityIdSchema = z.string().trim().regex(/^[1-9]\d{0,31}$/);
 const groupIdSchema = z.string().uuid();
 const gameStatusSchema = z.enum(["scheduled", "live", "complete", "unknown"]);
@@ -63,7 +69,32 @@ export type GameListFilters = {
 };
 
 export type StandingsFilters = { groupId?: string };
-export type ReviewFilters = { page: number; severity?: "info" | "warning" | "error"; code?: string };
+
+const playerSortSchema = z.enum(["name", "games", "minutes", "points", "rebounds", "assists", "steals", "blocks", "turnovers", "fouls", "orb", "drb", "fg", "two_pt", "three_pt", "ft", "efg", "ts", "efficiency", "ast_to"]);
+export type PlayerListFilters = {
+  query: string;
+  teamSourceId?: string;
+  minimumGames: number;
+  minimumAttempts: number;
+  sort: z.infer<typeof playerSortSchema>;
+  direction: "asc" | "desc";
+  extended: boolean;
+};
+
+export function parsePlayerListFilters(params: Record<string, string | string[] | undefined>): PlayerListFilters {
+  const scalar = (key: string) => typeof params[key] === "string" ? params[key] : undefined;
+  const team = sourceEntityIdSchema.safeParse(scalar("team"));
+  const minimum = z.coerce.number().int().min(0).max(100000).catch(0);
+  return {
+    query: z.string().trim().max(100).catch("").parse(scalar("q")),
+    ...(team.success ? { teamSourceId: team.data } : {}),
+    minimumGames: minimum.parse(scalar("minGp")),
+    minimumAttempts: minimum.parse(scalar("minFga")),
+    sort: playerSortSchema.catch("points").parse(scalar("sort")),
+    direction: z.enum(["asc", "desc"]).catch("desc").parse(scalar("dir")),
+    extended: scalar("columns") === "extended",
+  };
+}
 
 export function parseGameDetailFilters(params: Record<string, string | string[] | undefined>): GameDetailFilters {
   const rawPeriod = Array.isArray(params["period"]) ? undefined : params["period"];
@@ -111,22 +142,24 @@ export function parseReviewFilters(params: Record<string, string | string[] | un
   const rawCode = Array.isArray(params["code"]) ? undefined : params["code"];
   const parsedSeverity = severitySchema.safeParse(rawSeverity);
   const parsedCode = rawCode === undefined ? undefined : issueCodeSchema.safeParse(rawCode);
+  const parsedSource = z.enum(["portal", "livestats"]).safeParse(Array.isArray(params["source"]) ? undefined : params["source"]);
   return {
     page: parsePage(rawPage),
     ...(parsedSeverity.success ? { severity: parsedSeverity.data } : {}),
     ...(parsedCode?.success ? { code: parsedCode.data } : {}),
+    ...(parsedSource.success ? { source: parsedSource.data } : {}),
   };
 }
 
 export async function listCompetitions(db: StatsArenaDatabase): Promise<CompetitionOption[]> {
   return db.select({
     id: competitions.id,
-    sourceCompetitionId: competitions.sourceCompetitionId,
+    sourceCompetitionId: sql<string>`case when ${competitions.source} = 'genius_sports:IBL' then 'IBL:' || ${competitions.sourceCompetitionId} else ${competitions.sourceCompetitionId} end`,
     name: competitions.name,
     season: competitions.season,
     year: competitions.year,
   }).from(competitions)
-    .where(eq(competitions.source, "genius_sports"))
+    .where(inArray(competitions.source, Object.values(SOURCE_NAMES)))
     .orderBy(asc(competitions.name), asc(competitions.sourceCompetitionId));
 }
 
@@ -136,16 +169,17 @@ export async function getCompetitionBySourceId(
 ): Promise<CompetitionOption | null> {
   const parsedId = sourceCompetitionIdSchema.safeParse(sourceCompetitionId);
   if (!parsedId.success) return null;
+  const reference = competitionReference(parsedId.data);
   const [competition] = await db.select({
     id: competitions.id,
-    sourceCompetitionId: competitions.sourceCompetitionId,
+    sourceCompetitionId: sql<string>`case when ${competitions.source} = 'genius_sports:IBL' then 'IBL:' || ${competitions.sourceCompetitionId} else ${competitions.sourceCompetitionId} end`,
     name: competitions.name,
     season: competitions.season,
     year: competitions.year,
   }).from(competitions)
     .where(and(
-      eq(competitions.source, "genius_sports"),
-      eq(competitions.sourceCompetitionId, parsedId.data),
+      eq(competitions.source, reference.source),
+      eq(competitions.sourceCompetitionId, reference.id),
     ))
     .limit(1);
   return competition ?? null;
@@ -189,7 +223,6 @@ async function findCompetitionTeamId(db: StatsArenaDatabase, competitionId: stri
     .where(and(
       eq(competitionTeams.competitionId, competitionId),
       eq(teams.sourceTeamId, parsed.data),
-      eq(teams.source, "genius_sports"),
     ))
     .limit(1);
   return entry?.id ?? null;
@@ -203,7 +236,6 @@ async function findCompetitionPlayerId(db: StatsArenaDatabase, competitionId: st
     .where(and(
       eq(competitionPlayers.competitionId, competitionId),
       eq(players.sourcePlayerId, parsed.data),
-      eq(players.source, "genius_sports"),
     ))
     .limit(1);
   return entry?.id ?? null;
@@ -300,7 +332,7 @@ export async function getGameDetail(
   const parsedId = sourceEntityIdSchema.safeParse(sourceGameId);
   if (!parsedId.success) return null;
   const { homeTeam, awayTeam, selection } = gameSelection();
-  const [row] = await db.select({ ...selection, summaryFetchId: games.lastSummaryFetchId, boxscoreFetchId: games.lastBoxscoreFetchId })
+  const [row] = await db.select({ ...selection, summaryFetchId: games.lastSummaryFetchId, boxscoreFetchId: games.lastBoxscoreFetchId, datasetQuality: games.detailQuality })
     .from(games)
     .leftJoin(homeTeam, eq(homeTeam.id, games.homeTeamId))
     .leftJoin(awayTeam, eq(awayTeam.id, games.awayTeamId))
@@ -339,11 +371,11 @@ export async function getGameDetail(
   )!);
 
   const [teamStats, playerRows, eventRows, shotRows, officialRows, issueRows, fetchRows] = await Promise.all([
-    db.select({ stats: teamStatsSelection(), team: { id: teams.id, sourceTeamId: teams.sourceTeamId, name: teams.name } })
+    db.select({ stats: { ...teamStatsSelection(), statDerivations: teamGameStats.statDerivations }, team: { id: teams.id, sourceTeamId: teams.sourceTeamId, name: teams.name } })
       .from(teamGameStats)
       .innerJoin(teams, eq(teams.id, teamGameStats.teamId))
       .where(eq(teamGameStats.gameId, row.game.id)),
-    db.select({ stats: playerStatsSelection(), player: { id: players.id, sourcePlayerId: players.sourcePlayerId, name: players.name }, team: { id: teams.id, sourceTeamId: teams.sourceTeamId, name: teams.name } })
+    db.select({ stats: { ...playerStatsSelection(), statDerivations: playerGameStats.statDerivations }, player: { id: players.id, sourcePlayerId: players.sourcePlayerId, name: players.name }, team: { id: teams.id, sourceTeamId: teams.sourceTeamId, name: teams.name } })
       .from(playerGameStats)
       .innerJoin(players, eq(players.id, playerGameStats.playerId))
       .innerJoin(teams, eq(teams.id, playerGameStats.teamId))
@@ -425,6 +457,8 @@ export async function getGameDetail(
       message: validationIssues.message,
       fieldPath: validationIssues.fieldPath,
       sourceUrl: validationIssues.sourceUrl,
+      expected: validationIssues.expected,
+      actual: validationIssues.actual,
       createdAt: validationIssues.createdAt,
     }).from(validationIssues)
       .where(and(
@@ -504,15 +538,22 @@ export async function getGameDetail(
     }
   }
   const detailFetches = [...latestDetailFetches.values()];
+  const [liveStats] = await db.select({ status: gameLiveStats.status, payload: gameLiveStats.payload, sourceUrl: gameLiveStats.sourceUrl,
+    pageUrl: gameLiveStats.pageUrl, sourceFetchedAt: gameLiveStats.sourceFetchedAt, lastAttemptAt: gameLiveStats.lastAttemptAt, issues: gameLiveStats.issues })
+    .from(gameLiveStats).where(eq(gameLiveStats.gameId, row.game.id)).limit(1);
   return {
     ...mapGame(row),
+    liveStats: liveStats ?? null,
+    datasetQuality: row.datasetQuality,
     homeTeamStats: selectTeamStats(row.homeTeam),
     awayTeamStats: selectTeamStats(row.awayTeam),
     playerStats: mappedPlayers,
     playByPlayEvents: mappedEvents,
     shots: mappedShots,
     gameOfficialMetrics: mappedOfficialMetrics,
-    validationIssues: [...latestIssues.values()],
+    validationIssues: [...latestIssues.values()].filter((entry) => !row.datasetQuality ||
+      Object.values(row.datasetQuality).some((state) => state.issues.some((issue) =>
+        issue.code === entry.code && issue.fieldPath === entry.fieldPath && issue.sourceUrl === entry.sourceUrl))).map((entry) => ({ ...entry, ...enrichQualityIssue(entry) })),
     detailFetches,
     summaryFetch: findFetch(row.summaryFetchId),
     boxscoreFetch: findFetch(row.boxscoreFetchId),
@@ -539,42 +580,69 @@ type PlayerAggregate = {
   fieldGoalPercentage: number | null;
   threePointPercentage: number | null;
   freeThrowPercentage: number | null;
+  turnoversPerGame: number | null;
+  personalFoulsPerGame: number | null;
+  offensiveReboundsPerGame: number | null;
+  defensiveReboundsPerGame: number | null;
+  twoPointPercentage: number | null;
+  effectiveFieldGoalPercentage: number | null;
+  trueShootingPercentage: number | null;
+  efficiencyPerGame: number | null;
+  assistTurnoverRatio: number | null;
 };
 
-async function aggregatePlayerStats(
-  db: StatsArenaDatabase,
-  competitionId: string,
-  playerIds: string[],
-): Promise<Map<string, PlayerAggregate>> {
-  if (playerIds.length === 0) return new Map();
-  const rows = await db.select({
+function playerAggregatesQuery(db: StatsArenaDatabase, competitionId: string, playerIds?: string[]) {
+  const metrics: Partial<Record<MetricField, SQL>> = { gamesPlayed: sql`count(*)::float8` };
+  for (const field of BASE_STAT_FIELDS) {
+    const column = playerGameStats[field];
+    metrics[field] = sql`case when count(${column}) = count(*) then sum(${column})::float8 else null end`;
+  }
+  return db.select({
     playerId: playerGameStats.playerId,
-    gamesPlayed: sql<number>`count(*)::int`,
-    averageMinutes: sql<number | null>`avg(${playerGameStats.minutes})::float8`,
-    minutes: sql<number | null>`sum(${playerGameStats.minutes})::float8`,
-    points: sql<number | null>`sum(${playerGameStats.points})::int`,
-    rebounds: sql<number | null>`sum(${playerGameStats.rebounds})::int`,
-    assists: sql<number | null>`sum(${playerGameStats.assists})::int`,
-    steals: sql<number | null>`sum(${playerGameStats.steals})::int`,
-    blocks: sql<number | null>`sum(${playerGameStats.blocks})::int`,
-    fieldGoalsMade: sql<number | null>`sum(${playerGameStats.fieldGoalsMade})::int`,
-    fieldGoalsAttempted: sql<number | null>`sum(${playerGameStats.fieldGoalsAttempted})::int`,
-    pointsPerGame: sql<number | null>`avg(${playerGameStats.points})::float8`,
-    reboundsPerGame: sql<number | null>`avg(${playerGameStats.rebounds})::float8`,
-    assistsPerGame: sql<number | null>`avg(${playerGameStats.assists})::float8`,
-    stealsPerGame: sql<number | null>`avg(${playerGameStats.steals})::float8`,
-    blocksPerGame: sql<number | null>`avg(${playerGameStats.blocks})::float8`,
-    fieldGoalPercentage: sql<number | null>`sum(${playerGameStats.fieldGoalsMade})::float8 * 100 / nullif(sum(${playerGameStats.fieldGoalsAttempted}), 0)`,
-    threePointPercentage: sql<number | null>`sum(${playerGameStats.threePointsMade})::float8 * 100 / nullif(sum(${playerGameStats.threePointAttempts}), 0)`,
-    freeThrowPercentage: sql<number | null>`sum(${playerGameStats.freeThrowsMade})::float8 * 100 / nullif(sum(${playerGameStats.freeThrowAttempts}), 0)`,
+    gamesPlayed: sql<number>`count(*)::int`.as("gamesPlayed"),
+    averageMinutes: sql<number | null>`avg(${playerGameStats.minutes})::float8`.as("averageMinutes"),
+    minutes: sql<number | null>`sum(${playerGameStats.minutes})::float8`.as("minutes"),
+    points: sql<number | null>`sum(${playerGameStats.points})::int`.as("points"),
+    rebounds: sql<number | null>`sum(${playerGameStats.rebounds})::int`.as("rebounds"),
+    assists: sql<number | null>`sum(${playerGameStats.assists})::int`.as("assists"),
+    steals: sql<number | null>`sum(${playerGameStats.steals})::int`.as("steals"),
+    blocks: sql<number | null>`sum(${playerGameStats.blocks})::int`.as("blocks"),
+    fieldGoalsMade: sql<number | null>`sum(${playerGameStats.fieldGoalsMade})::int`.as("fieldGoalsMade"),
+    fieldGoalsAttempted: sql<number | null>`sum(${playerGameStats.fieldGoalsAttempted})::int`.as("fieldGoalsAttempted"),
+    pointsPerGame: sql<number | null>`avg(${playerGameStats.points})::float8`.as("pointsPerGame"),
+    reboundsPerGame: sql<number | null>`avg(${playerGameStats.rebounds})::float8`.as("reboundsPerGame"),
+    assistsPerGame: sql<number | null>`avg(${playerGameStats.assists})::float8`.as("assistsPerGame"),
+    stealsPerGame: sql<number | null>`avg(${playerGameStats.steals})::float8`.as("stealsPerGame"),
+    blocksPerGame: sql<number | null>`avg(${playerGameStats.blocks})::float8`.as("blocksPerGame"),
+    fieldGoalPercentage: metricSql("fieldGoalPercentage", metrics).as("fieldGoalPercentage"),
+    threePointPercentage: metricSql("threePointPercentage", metrics).as("threePointPercentage"),
+    freeThrowPercentage: metricSql("freeThrowPercentage", metrics).as("freeThrowPercentage"),
+    turnoversPerGame: sql<number | null>`avg(${playerGameStats.turnovers})::float8`.as("turnoversPerGame"),
+    personalFoulsPerGame: sql<number | null>`avg(${playerGameStats.personalFouls})::float8`.as("personalFoulsPerGame"),
+    offensiveReboundsPerGame: sql<number | null>`avg(${playerGameStats.offensiveRebounds})::float8`.as("offensiveReboundsPerGame"),
+    defensiveReboundsPerGame: sql<number | null>`avg(${playerGameStats.defensiveRebounds})::float8`.as("defensiveReboundsPerGame"),
+    twoPointPercentage: metricSql("twoPointPercentage", metrics).as("twoPointPercentage"),
+    effectiveFieldGoalPercentage: metricSql("effectiveFieldGoalPercentage", metrics).as("effectiveFieldGoalPercentage"),
+    trueShootingPercentage: metricSql("trueShootingPercentage", metrics).as("trueShootingPercentage"),
+    assistTurnoverRatio: metricSql("assistTurnoverRatio", metrics).as("assistTurnoverRatio"),
+    efficiencyPerGame: metricSql("efficiencyPerGame", metrics).as("efficiencyPerGame"),
   }).from(playerGameStats)
     .innerJoin(games, eq(games.id, playerGameStats.gameId))
     .where(and(
       eq(games.competitionId, competitionId),
       eq(games.status, "complete"),
-      inArray(playerGameStats.playerId, playerIds),
+      playerIds ? inArray(playerGameStats.playerId, playerIds) : undefined,
     ))
     .groupBy(playerGameStats.playerId);
+}
+
+async function aggregatePlayerStats(
+  db: StatsArenaDatabase,
+  competitionId: string,
+  playerIds: string[],
+) {
+  if (playerIds.length === 0) return new Map<string, PlayerAggregate>();
+  const rows = await playerAggregatesQuery(db, competitionId, playerIds);
   return new Map(rows.map((row) => [row.playerId, row]));
 }
 
@@ -599,40 +667,69 @@ export async function getPlayersPage(
   competitionId: string,
   page: number,
   pageSize = PAGE_SIZE,
+  filters: PlayerListFilters = parsePlayerListFilters({}),
 ): Promise<PageResult<PlayerListItem>> {
+  const aggregate = playerAggregatesQuery(db, competitionId).as("player_aggregates");
+  const conditions: SQL[] = [eq(competitionPlayers.competitionId, competitionId)];
+  if (filters.query) conditions.push(ilike(players.name, `%${filters.query.replace(/[\\%_]/g, "\\$&")}%`));
+  if (filters.minimumGames > 0) conditions.push(gte(aggregate.gamesPlayed, filters.minimumGames));
+  if (filters.minimumAttempts > 0) conditions.push(gte(aggregate.fieldGoalsAttempted, filters.minimumAttempts));
+  if (filters.teamSourceId) conditions.push(exists(db.select({ id: teamRosters.id })
+    .from(teamRosters).innerJoin(teams, eq(teams.id, teamRosters.teamId))
+    .where(and(eq(teamRosters.competitionId, competitionId), eq(teamRosters.playerId, players.id), eq(teams.sourceTeamId, filters.teamSourceId)))));
+  const sortColumns = {
+    name: players.name, games: aggregate.gamesPlayed, minutes: aggregate.averageMinutes,
+    points: aggregate.pointsPerGame, rebounds: aggregate.reboundsPerGame,
+    assists: aggregate.assistsPerGame, steals: aggregate.stealsPerGame, blocks: aggregate.blocksPerGame,
+    turnovers: aggregate.turnoversPerGame, fouls: aggregate.personalFoulsPerGame,
+    orb: aggregate.offensiveReboundsPerGame, drb: aggregate.defensiveReboundsPerGame,
+    fg: aggregate.fieldGoalPercentage, two_pt: aggregate.twoPointPercentage,
+    three_pt: aggregate.threePointPercentage, ft: aggregate.freeThrowPercentage,
+    efg: aggregate.effectiveFieldGoalPercentage, ts: aggregate.trueShootingPercentage,
+    efficiency: aggregate.efficiencyPerGame, ast_to: aggregate.assistTurnoverRatio,
+  };
+  const column = sortColumns[filters.sort];
+  const order = filters.direction === "asc" ? sql`${column} asc nulls last` : sql`${column} desc nulls last`;
   const [totalRow] = await db.select({ value: count() }).from(competitionPlayers)
-    .where(eq(competitionPlayers.competitionId, competitionId));
+    .innerJoin(players, eq(players.id, competitionPlayers.playerId))
+    .leftJoin(aggregate, eq(aggregate.playerId, players.id)).where(and(...conditions));
   const rows = await db.select({
-    id: players.id,
-    sourcePlayerId: players.sourcePlayerId,
-    name: players.name,
-    sourceUrl: competitionPlayers.sourceUrl,
+    id: players.id, sourcePlayerId: players.sourcePlayerId,
+    name: players.name, sourceUrl: competitionPlayers.sourceUrl,
+    gamesPlayed: sql<number>`coalesce(${aggregate.gamesPlayed}, 0)`,
+    averageMinutes: aggregate.averageMinutes,
+    pointsPerGame: aggregate.pointsPerGame,
+    reboundsPerGame: aggregate.reboundsPerGame,
+    assistsPerGame: aggregate.assistsPerGame,
+    stealsPerGame: aggregate.stealsPerGame,
+    blocksPerGame: aggregate.blocksPerGame,
+    fieldGoalPercentage: aggregate.fieldGoalPercentage,
+    threePointPercentage: aggregate.threePointPercentage,
+    freeThrowPercentage: aggregate.freeThrowPercentage,
+    turnoversPerGame: aggregate.turnoversPerGame,
+    personalFoulsPerGame: aggregate.personalFoulsPerGame,
+    offensiveReboundsPerGame: aggregate.offensiveReboundsPerGame,
+    defensiveReboundsPerGame: aggregate.defensiveReboundsPerGame,
+    twoPointPercentage: aggregate.twoPointPercentage,
+    effectiveFieldGoalPercentage: aggregate.effectiveFieldGoalPercentage,
+    trueShootingPercentage: aggregate.trueShootingPercentage,
+    efficiencyPerGame: aggregate.efficiencyPerGame,
+    assistTurnoverRatio: aggregate.assistTurnoverRatio,
   }).from(competitionPlayers)
     .innerJoin(players, eq(players.id, competitionPlayers.playerId))
-    .where(eq(competitionPlayers.competitionId, competitionId))
-    .orderBy(asc(players.name), asc(players.sourcePlayerId))
-    .limit(pageSize)
-    .offset((page - 1) * pageSize);
-  const playerIds = rows.map((row) => row.id);
-  const [aggregates, rosterNames] = await Promise.all([
-    aggregatePlayerStats(db, competitionId, playerIds),
-    rosterNamesByPlayer(db, competitionId, playerIds),
-  ]);
-  const items = rows.map((row) => ({
-    ...row,
-    gamesPlayed: aggregates.get(row.id)?.gamesPlayed ?? 0,
-    averageMinutes: aggregates.get(row.id)?.averageMinutes ?? null,
-    pointsPerGame: aggregates.get(row.id)?.pointsPerGame ?? null,
-    reboundsPerGame: aggregates.get(row.id)?.reboundsPerGame ?? null,
-    assistsPerGame: aggregates.get(row.id)?.assistsPerGame ?? null,
-    stealsPerGame: aggregates.get(row.id)?.stealsPerGame ?? null,
-    blocksPerGame: aggregates.get(row.id)?.blocksPerGame ?? null,
-    fieldGoalPercentage: aggregates.get(row.id)?.fieldGoalPercentage ?? null,
-    threePointPercentage: aggregates.get(row.id)?.threePointPercentage ?? null,
-    freeThrowPercentage: aggregates.get(row.id)?.freeThrowPercentage ?? null,
-    teamNames: rosterNames.get(row.id) ?? [],
-  }));
+    .leftJoin(aggregate, eq(aggregate.playerId, players.id))
+    .where(and(...conditions))
+    .orderBy(order, asc(players.name), asc(players.sourcePlayerId))
+    .limit(pageSize).offset((page - 1) * pageSize);
+  const rosterNames = await rosterNamesByPlayer(db, competitionId, rows.map((row) => row.id));
+  const items = rows.map((row) => ({ ...row, teamNames: rosterNames.get(row.id) ?? [] }));
   return { items, total: totalRow?.value ?? 0, page, pageSize };
+}
+
+export async function getPlayerTeamOptions(db: StatsArenaDatabase, competitionId: string) {
+  return db.select({ sourceTeamId: teams.sourceTeamId, name: teams.name })
+    .from(competitionTeams).innerJoin(teams, eq(teams.id, competitionTeams.teamId))
+    .where(eq(competitionTeams.competitionId, competitionId)).orderBy(asc(teams.name));
 }
 
 export async function getPlayerLeaderboard(
@@ -680,7 +777,6 @@ export async function getPlayerSummary(
     .innerJoin(players, eq(players.id, competitionPlayers.playerId))
     .where(and(
       eq(competitionPlayers.competitionId, competitionId),
-      eq(players.source, "genius_sports"),
       eq(players.sourcePlayerId, parsedId.data),
     ))
     .limit(1);
@@ -734,6 +830,15 @@ export async function getPlayerSummary(
     fieldGoalPercentage: aggregate?.fieldGoalPercentage ?? null,
     threePointPercentage: aggregate?.threePointPercentage ?? null,
     freeThrowPercentage: aggregate?.freeThrowPercentage ?? null,
+    turnoversPerGame: aggregate?.turnoversPerGame ?? null,
+    personalFoulsPerGame: aggregate?.personalFoulsPerGame ?? null,
+    offensiveReboundsPerGame: aggregate?.offensiveReboundsPerGame ?? null,
+    defensiveReboundsPerGame: aggregate?.defensiveReboundsPerGame ?? null,
+    twoPointPercentage: aggregate?.twoPointPercentage ?? null,
+    effectiveFieldGoalPercentage: aggregate?.effectiveFieldGoalPercentage ?? null,
+    trueShootingPercentage: aggregate?.trueShootingPercentage ?? null,
+    efficiencyPerGame: aggregate?.efficiencyPerGame ?? null,
+    assistTurnoverRatio: aggregate?.assistTurnoverRatio ?? null,
     teamNames: teamRows.map((row) => row.name).filter((name, index, values) => values.indexOf(name) === index),
   };
   const summaryTotals = {
@@ -1041,9 +1146,9 @@ export async function getOverview(db: StatsArenaDatabase, competitionId: string)
 }
 
 export async function getOperationalStatus(db: StatsArenaDatabase, competitionId: string): Promise<OperationalStatus> {
-  const [competition] = await db.select({ sourceCompetitionId: competitions.sourceCompetitionId })
+  const [competition] = await db.select({ sourceCompetitionId: competitions.sourceCompetitionId, source: competitions.source })
     .from(competitions).where(eq(competitions.id, competitionId)).limit(1);
-  const [runs, leases, sourceFetchRows] = await Promise.all([
+  const [runs, leases, sourceFetchRows, importObservationRows] = await Promise.all([
     db.select({
       id: syncRuns.id,
       status: syncRuns.status,
@@ -1058,14 +1163,19 @@ export async function getOperationalStatus(db: StatsArenaDatabase, competitionId
       writeCounts: syncRuns.writeCounts,
       resultSummary: syncRuns.resultSummary,
       importRunId: syncRuns.importRunId,
-    }).from(syncRuns).where(eq(syncRuns.competitionId, competitionId))
+      baselineImportRunId: importRuns.baselineImportRunId,
+    }).from(syncRuns).leftJoin(importRuns, and(eq(syncRuns.importRunId, importRuns.id), eq(importRuns.competitionId, competitionId)))
+      .where(eq(syncRuns.competitionId, competitionId))
       .orderBy(desc(syncRuns.startedAt)).limit(20),
     competition ? db.select({ expiresAt: syncLeases.expiresAt }).from(syncLeases)
-      .where(and(eq(syncLeases.source, "genius_sports"), eq(syncLeases.sourceCompetitionId, competition.sourceCompetitionId))).limit(1)
+      .where(and(eq(syncLeases.source, competition.source), eq(syncLeases.sourceCompetitionId, competition.sourceCompetitionId))).limit(1)
       : Promise.resolve([]),
     db.select({ requestedAt: sourceFetches.requestedAt, sourceFetchedAt: sourceFetches.sourceFetchedAt })
       .from(sourceFetches).where(and(eq(sourceFetches.competitionId, competitionId), isNotNull(sourceFetches.sourceFetchedAt)))
       .orderBy(desc(sourceFetches.requestedAt)).limit(1),
+    db.select({ requestedAt: importRuns.latestRequestedAt, sourceFetchedAt: importRuns.latestSourceFetchedAt })
+      .from(importRuns).where(and(eq(importRuns.competitionId, competitionId), isNotNull(importRuns.latestSourceFetchedAt)))
+      .orderBy(desc(importRuns.latestRequestedAt)).limit(1),
   ]);
   const latest = runs[0] ?? null;
   const latestFinished = runs.find((run) => run.status !== "running") ?? null;
@@ -1079,7 +1189,7 @@ export async function getOperationalStatus(db: StatsArenaDatabase, competitionId
   const reviewIssueRows = latestFinished?.importRunId
     ? await db.select({ value: count() }).from(validationIssues).where(and(
       eq(validationIssues.competitionId, competitionId),
-      eq(validationIssues.importRunId, latestFinished.importRunId)
+      eq(validationIssues.importRunId, latestFinished.baselineImportRunId ?? latestFinished.importRunId)
     ))
     : [];
   return {
@@ -1089,7 +1199,9 @@ export async function getOperationalStatus(db: StatsArenaDatabase, competitionId
     latestMode: latest?.mode ?? null,
     lastCheckedAt: latest?.startedAt ?? null,
     lastFinishedAt: latestFinished?.finishedAt ?? null,
-    lastSourceFetchedAt: sourceFetchRows[0]?.sourceFetchedAt ?? null,
+    lastSourceFetchedAt: (importObservationRows[0]?.requestedAt?.getTime() ?? 0) >= (sourceFetchRows[0]?.requestedAt?.getTime() ?? 0)
+      ? importObservationRows[0]?.sourceFetchedAt ?? sourceFetchRows[0]?.sourceFetchedAt ?? null
+      : sourceFetchRows[0]?.sourceFetchedAt ?? null,
     nextRunAt: latest?.nextRunAt ?? latestFinished?.nextRunAt ?? null,
     pageCount: statusRun?.pageCount ?? 0,
     failureCount: statusRun?.failureCount ?? 0,
@@ -1106,8 +1218,7 @@ export async function getReviewSummary(
   filters: ReviewFilters,
   pageSize = PAGE_SIZE,
 ): Promise<ReviewSummary> {
-  const [runRows, totalRows, issueTypeRows] = await Promise.all([
-    db.select({
+  const runRows = await db.select({
       id: importRuns.id,
       mode: importRuns.mode,
       status: importRuns.status,
@@ -1118,53 +1229,13 @@ export async function getReviewSummary(
       errorSummary: importRuns.errorSummary,
     }).from(importRuns)
       .where(eq(importRuns.competitionId, competitionId))
-      .orderBy(desc(importRuns.startedAt)).limit(20),
-    db.select({ value: count() }).from(validationIssues).where(eq(validationIssues.competitionId, competitionId)),
-    db.selectDistinct({ code: validationIssues.code }).from(validationIssues)
-      .where(eq(validationIssues.competitionId, competitionId))
-      .orderBy(asc(validationIssues.code)).limit(100),
-  ]);
+      .orderBy(desc(importRuns.startedAt)).limit(20);
   const latestRunId = runRows[0]?.id ?? null;
-  const conditions: SQL[] = [eq(validationIssues.competitionId, competitionId)];
-  if (filters.severity) conditions.push(eq(validationIssues.severity, filters.severity));
-  if (filters.code) conditions.push(eq(validationIssues.code, filters.code));
-  const where = and(...conditions);
-  const [filteredCount] = await db.select({ value: count() }).from(validationIssues).where(where);
-  const rows = await db.select({
-    id: validationIssues.id,
-    severity: validationIssues.severity,
-    code: validationIssues.code,
-    message: validationIssues.message,
-    fieldPath: validationIssues.fieldPath,
-    sourceUrl: validationIssues.sourceUrl,
-    createdAt: validationIssues.createdAt,
-    game: { id: games.id, sourceGameId: games.sourceGameId },
-    importRun: {
-      id: importRuns.id,
-      mode: importRuns.mode,
-      status: importRuns.status,
-      startedAt: importRuns.startedAt,
-      finishedAt: importRuns.finishedAt,
-    },
-  }).from(validationIssues)
-    .leftJoin(games, and(eq(games.id, validationIssues.gameId), eq(games.competitionId, competitionId)))
-    .leftJoin(importRuns, eq(importRuns.id, validationIssues.importRunId))
-    .where(where)
-    .orderBy(desc(validationIssues.createdAt), desc(validationIssues.id))
-    .limit(pageSize)
-    .offset((filters.page - 1) * pageSize);
-  const issues: PageResult<ReviewIssueListItem> = {
-    items: rows.map((row) => ({ ...row, isLatestRun: Boolean(row.importRun?.id && row.importRun.id === latestRunId) })),
-    total: filteredCount?.value ?? 0,
-    page: filters.page,
-    pageSize,
-  };
+  const review = await getReviewIssues(db, competitionId, filters, pageSize, latestRunId);
   const mappedRuns: ImportRunListItem[] = runRows;
   return {
-    totalIssues: totalRows[0]?.value ?? 0,
-    issueTypes: issueTypeRows.map((row) => row.code),
+    ...review,
     latestRun: mappedRuns[0] ?? null,
     runs: mappedRuns,
-    issues,
   };
 }
