@@ -12,5 +12,7 @@ dashboard/next-env.d.ts
 ingest/snapshots/
 ingest/audit/
 ingest/.locks/
+# Local runtime files created when ingest is run from its own directory.
+ingest/ingest/
 .DS_Store
 dashboard/.auth-bootstrap.json
