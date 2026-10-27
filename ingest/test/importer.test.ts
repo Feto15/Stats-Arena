@@ -6,6 +6,7 @@ import { load } from "cheerio";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
+import { readMigrationFiles } from "drizzle-orm/migrator";
 import { fileURLToPath } from "node:url";
 import type { StatsArenaDatabase } from "@statsarena/db";
 import { importCompetition } from "../src/import/importer.js";
@@ -369,7 +370,7 @@ test("importer writes real 49607 identities, standings, and box score idempotent
   try {
     await applyMigrations(client);
     await applyMigrations(client);
-    assert.equal(await count(client, "__drizzle_migrations"), 9);
+    assert.equal(await count(client, "__drizzle_migrations"), readMigrationFiles({ migrationsFolder: fileURLToPath(new URL("../../packages/db/drizzle", import.meta.url)) }).length);
     const pgliteDb = drizzle(client, { schema: (await import("@statsarena/db/schema")).schema });
     const db = pgliteDb as unknown as StatsArenaDatabase;
     const data = realCompetitionData();

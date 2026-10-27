@@ -1,10 +1,8 @@
+import { requireAdmin } from "@/lib/auth/server";
 import { validateSourceUrl } from "@statsarena/db/source";
 import "server-only";
 import { getGlobalReview } from "./global-review";
 
-import { resolve } from "node:path";
-import { createDatabase, type StatsArenaDatabase } from "@statsarena/db";
-import { loadProjectEnv } from "@statsarena/db/env";
 import {
   getCompetitionBySourceId,
   getGameDetail,
@@ -25,18 +23,11 @@ import {
 } from "./queries";
 import type { GameDetailFilters } from "./contracts";
 
-let database: ReturnType<typeof createDatabase> | undefined;
-
-/** Keep the pooled connection server-only and lazily initialize it after loading StatsArena's root .env. */
-export function getDashboardDatabase(): StatsArenaDatabase {
-  if (!database) {
-    loadProjectEnv(resolve(process.cwd(), "../.env"));
-    database = createDatabase();
-  }
-  return database.db;
-}
+export { getDashboardDatabase } from "./connection";
+import { getDashboardDatabase } from "./connection";
 
 export async function readCompetitionOptions() {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await listCompetitions(getDashboardDatabase()) };
   } catch {
@@ -45,6 +36,7 @@ export async function readCompetitionOptions() {
 }
 
 export async function readCompetition(sourceId: string) {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await getCompetitionBySourceId(getDashboardDatabase(), sourceId) };
   } catch {
@@ -53,6 +45,7 @@ export async function readCompetition(sourceId: string) {
 }
 
 export async function readOverview(competitionId: string) {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await getOverview(getDashboardDatabase(), competitionId) };
   } catch {
@@ -61,6 +54,7 @@ export async function readOverview(competitionId: string) {
 }
 
 export async function readGames(competitionId: string, filters: GameListFilters) {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await getGamesPage(getDashboardDatabase(), competitionId, filters) };
   } catch {
@@ -69,6 +63,7 @@ export async function readGames(competitionId: string, filters: GameListFilters)
 }
 
 export async function readGame(competitionId: string, sourceGameId: string, filters: GameDetailFilters = {}) {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await getGameDetail(getDashboardDatabase(), competitionId, sourceGameId, filters) };
   } catch {
@@ -77,6 +72,7 @@ export async function readGame(competitionId: string, sourceGameId: string, filt
 }
 
 export async function readTeams(competitionId: string, page: number) {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await getTeamsPage(getDashboardDatabase(), competitionId, page) };
   } catch {
@@ -85,6 +81,7 @@ export async function readTeams(competitionId: string, page: number) {
 }
 
 export async function readTeam(competitionId: string, sourceTeamId: string) {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await getTeamSummary(getDashboardDatabase(), competitionId, sourceTeamId) };
   } catch {
@@ -93,6 +90,7 @@ export async function readTeam(competitionId: string, sourceTeamId: string) {
 }
 
 export async function readPlayers(competitionId: string, page: number, filters: PlayerListFilters) {
+  await requireAdmin();
   try {
     const db = getDashboardDatabase();
     const [data, teamOptions] = await Promise.all([
@@ -106,6 +104,7 @@ export async function readPlayers(competitionId: string, page: number, filters: 
 }
 
 export async function readPlayer(competitionId: string, sourcePlayerId: string) {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await getPlayerSummary(getDashboardDatabase(), competitionId, sourcePlayerId) };
   } catch {
@@ -114,6 +113,7 @@ export async function readPlayer(competitionId: string, sourcePlayerId: string) 
 }
 
 export async function readStandings(competitionId: string, filters: StandingsFilters) {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await getStandings(getDashboardDatabase(), competitionId, filters) };
   } catch {
@@ -122,6 +122,7 @@ export async function readStandings(competitionId: string, filters: StandingsFil
 }
 
 export async function readReview(competitionId: string, filters: ReviewFilters) {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await getReviewSummary(getDashboardDatabase(), competitionId, filters) };
   } catch {
@@ -130,6 +131,7 @@ export async function readReview(competitionId: string, filters: ReviewFilters) 
 }
 
 export async function readGlobalReview(filters: ReviewFilters) {
+  await requireAdmin();
   try {
     return { status: "ready" as const, data: await getGlobalReview(getDashboardDatabase(), filters) };
   } catch {

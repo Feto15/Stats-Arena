@@ -1,0 +1,21 @@
+{
+  "competitionKey": "IBL:50231",
+  "fixtures": [
+    {
+      "file": "2938930.json.gz",
+      "sourceUrl": "https://fibalivestats.dcd.shared.geniussports.com/data/2938930/data.json",
+      "fetchedAt": "2026-10-25T14:07:59.709Z",
+      "originalPayloadSha256": "935724072db5daf77f050ffb100fe6c200147b65424fe93ca2c48627836345d5",
+      "fixtureJsonSha256": "29dead6d93f2e8716404e8a924ae7840ec36324892d8a415e613fd313405c612",
+      "subset": "Original tm objects; PBP and unrelated JSON fields omitted. Portal context retains original source IDs and core box score."
+    },
+    {
+      "file": "2945705.json.gz",
+      "sourceUrl": "https://fibalivestats.dcd.shared.geniussports.com/data/2945705/data.json",
+      "fetchedAt": "2026-10-25T14:08:01.020Z",
+      "originalPayloadSha256": "8d35b52c10b56cb7ac80cd4ed6d16213ee3ab04ceff7d711531940e9cdbdb366",
+      "fixtureJsonSha256": "86f39e23596d6d76ea9d871ac75d4b14a92040b2cf9e72e6adb8c0c02fa407b8",
+      "subset": "Original tm objects; PBP and unrelated JSON fields omitted. Portal context retains original source IDs and core box score."
+    }
+  ]
+}

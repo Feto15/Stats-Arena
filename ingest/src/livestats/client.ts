@@ -95,6 +95,8 @@ export class LiveStatsClient {
   }
 
   async accept(response: LiveStatsResponse): Promise<string> {
+    // A cache-only import may start from a legacy current alias without its immutable copy.
+    if (!await this.read(response.url, response.hash)) await this.write(response.url, response.hash, response);
     const current = await this.read(response.url).catch(() => null);
     if (current?.hash !== response.hash) {
       if (current) await this.write(response.url, "previous", current);

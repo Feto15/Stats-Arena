@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { LiveStatsIssue, LiveStatsSupplement, LiveStatsTeam } from "@statsarena/db/livestats";
+import type { LiveStatsIssue, LiveStatsSupplement, LiveStatsTeam, LiveStatsRotationEvidence } from "@statsarena/db/livestats";
+import { liveStatsPlayerNameEvidence, liveStatsPlayerNames, normalizeLiveStatsName as normalize } from "@statsarena/db/livestats";
 import { parsedDataHash } from "../domain/content-hash.js";
 import { officialMetricConflicts } from "./official-metrics.js";
 
@@ -24,8 +25,7 @@ export interface PortalContext {
 
 const unknownRecord = z.record(z.string(), z.unknown());
 const teamSchema = unknownRecord.and(z.object({ name: z.string().min(1), score: z.number().int().nonnegative(), pl: z.record(z.string(), unknownRecord) }));
-const dataSchema = z.object({ tm: z.record(z.string(), teamSchema) });
-const normalize = (value: string) => value.normalize("NFKC").toUpperCase().replace(/[^\p{L}\p{N}]/gu, "");
+const dataSchema = z.object({ tm: z.record(z.string(), teamSchema), pbp: z.unknown().optional() });
 
 export interface LiveStatsReport { status: "ready" | "partial" | "mismatch"; payload: LiveStatsSupplement | null; issues: LiveStatsIssue[] }
 
@@ -82,10 +82,7 @@ export function parseLiveStatsJson(input: unknown, portal: PortalContext): LiveS
     let starters = 0;
     for (const [localPlayerKey, raw] of Object.entries(rawTeam.pl)) {
       const field = `teams.${localTeamKey}.players.${localPlayerKey}`;
-      const names = [raw["name"], raw["scoreboardName"],
-        `${typeof raw["firstName"] === "string" ? raw["firstName"] : ""} ${typeof raw["familyName"] === "string" ? raw["familyName"] : ""}`,
-        `${typeof raw["internationalFirstName"] === "string" ? raw["internationalFirstName"] : ""} ${typeof raw["internationalFamilyName"] === "string" ? raw["internationalFamilyName"] : ""}`]
-        .filter((name): name is string => typeof name === "string" && name.trim().length > 0).map(normalize);
+      const names = liveStatsPlayerNames(liveStatsPlayerNameEvidence(raw)).map(normalize);
       const jersey = raw["shirtNumber"];
       // No fuzzy/name-only joins, order-based joins, or new global player creation.
       const candidates = typeof jersey === "string" && jersey.trim() ? portalPlayers.filter(p => p.jerseyNumber?.trim() === jersey.trim() && names.includes(normalize(p.name))) : [];
@@ -111,7 +108,30 @@ export function parseLiveStatsJson(input: unknown, portal: PortalContext): LiveS
   }
   issues.push(...officialMetricConflicts(portal.officialMetrics ?? [], payload.teams));
   if (!payload.players.length && !payload.teams.length) return { status: "mismatch", payload: null, issues };
+  const pbp = z.array(unknownRecord).min(10).max(5000).safeParse(data.pbp);
+  if (pbp.success && portal.homeScore !== null && portal.awayScore !== null) {
+    const eventFields = ["clock", "period", "periodType", "tno", "pno", "player", "shirtNumber", "actionType", "subType", "actionNumber", "previousAction", "qualifier", "scoring", "s1", "s2", "success", "gt"];
+    payload.rotation = {
+      format: "statsarena-livestats-rotation/1.0.0", gameSourceId: portal.sourceGameId, homeScore: portal.homeScore, awayScore: portal.awayScore,
+      events: pbp.data.map((event, sourceSequence) => ({ sourceSequence, ...Object.fromEntries(eventFields.map(key => [key, event[key]])) })),
+      teams: payload.teams.map(team => ({ teamId: team.teamId, localTeamKey: team.localTeamKey,
+        players: payload.players.filter(p => p.teamId === team.teamId).map(player => {
+          const raw = data.tm[team.localTeamKey]!.pl[player.localPlayerKey]!;
+          return { playerId: player.playerId, localPlayerKey: player.localPlayerKey, name: player.name, jerseyNumber: player.jerseyNumber,
+            starter: player.starter, plusMinus: player.plusMinus, minutesRaw: typeof raw["sMinutes"] === "string" ? raw["sMinutes"] : null,
+            nameEvidence: liveStatsPlayerNameEvidence(raw), core: Object.fromEntries(Object.entries(coreFields).map(([field, key]) => [field, raw[key]])) };
+        }) })),
+    };
+  }
   return { status: issues.length ? "partial" : "ready", payload, issues };
+}
+
+/** A shorter source revision is not evidence that prior events or identities were officially deleted. */
+export function rotationEvidenceIsReduced(previous: LiveStatsRotationEvidence | undefined, incoming: LiveStatsRotationEvidence | undefined) {
+  return !!previous && (!incoming || incoming.events.length < previous.events.length || previous.teams.some(team => {
+    const next = incoming.teams.find(t => t.teamId === team.teamId);
+    return !next || team.players.some(p => !next.players.some(n => n.playerId === p.playerId));
+  }));
 }
 
 /** Missing optional fields never erase previously verified values. */
@@ -127,6 +147,11 @@ export function mergeSupplement(previous: LiveStatsSupplement | null, incoming: 
       return row;
     }).concat(oldRows.filter(old => !newRows.some(row => key(row) === key(old))));
   }
+  const oldRotation = previous?.rotation;
+  const nextRotation = incoming.rotation;
+  const content = (row: NonNullable<LiveStatsSupplement["rotation"]>) => Object.fromEntries(Object.entries(row).filter(([key]) => key !== "provenance"));
+  const rotation = !nextRotation || oldRotation && (rotationEvidenceIsReduced(oldRotation, nextRotation) || parsedDataHash(content(oldRotation)) === parsedDataHash(content(nextRotation))) ? oldRotation : nextRotation;
   return { players: merge(previous?.players ?? [], incoming.players, row => row.playerId),
-    teams: merge<LiveStatsTeam>(previous?.teams ?? [], incoming.teams, row => row.teamId) };
+    teams: merge<LiveStatsTeam>(previous?.teams ?? [], incoming.teams, row => row.teamId),
+    ...(rotation ? { rotation } : {}) };
 }

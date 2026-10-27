@@ -1,0 +1,18 @@
+{
+  "sourceUrl": "https://hosted.dcd.shared.geniussports.com/images/surface_basketball1.jpg",
+  "sha256": "b543c3dcbf0aad298b6be7cb180608f68fc9e9a493d26b6994de9e931a009fef",
+  "fetchedAt": "2026-10-23T04:38:50.611Z",
+  "intrinsicSize": {
+    "width": 891,
+    "height": 532
+  },
+  "stylesheet": {
+    "sourceUrl": "https://hosted.dcd.shared.geniussports.com/css/hs-style.css?v=4.0",
+    "sha256": "9b8b74f9321b19427485de483cf689134f85be2b490cf8c89cda44dc3e4ad398",
+    "selector": ".match-page .shot-chart div#shotchart-wrapper",
+    "paddingBottom": "59.5%",
+    "backgroundSelector": ".match-page .shot-chart #shotchart",
+    "backgroundSize": "100% 100%"
+  },
+  "rendering": "Original source image, stretched to the source CSS canvas ratio. X=left, Y=top. No rotation or court-distance inference."
+}

@@ -171,7 +171,9 @@ test("a new process resumes validated pages, fetches failed URLs only, and detec
     } else return new Response("unexpected source path", { status: 404 });
     return new Response(html, { headers: { "content-type": "text/html" } });
   };
-  const newProcess = () => new HtmlFetcher({ snapshotStore: new SnapshotStore(directory), fetchImpl, retries: 0 });
+  // This scenario changes source data, not elapsed TTL; keep resource contention from expiring its cache.
+  const requestTime = Date.now();
+  const newProcess = () => new HtmlFetcher({ snapshotStore: new SnapshotStore(directory), fetchImpl, retries: 0, now: () => requestTime });
   try {
     const first = await syncCompetition(root, { fetcher: newProcess() });
     assert.equal(first.parseCounts["fetchFailedMatches"], 1);

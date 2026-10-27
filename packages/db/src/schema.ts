@@ -3,6 +3,7 @@ import type { LiveStatsSupplement, LiveStatsStatus, LiveStatsIssue } from "./liv
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  bigint,
   check,
   doublePrecision,
   foreignKey,
@@ -559,7 +560,55 @@ export const validationIssues = statsarena.table(
   ]
 );
 
+// Better Auth owns credentials/sessions; report grants use source IDs so local reports need no ingest FK.
+export const authUsers = statsarena.table("auth_users", {
+  id: text("id").primaryKey(), name: text("name").notNull(), email: text("email").notNull(),
+  emailVerified: boolean("email_verified").notNull().default(false), image: text("image"),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+}, t => [uniqueIndex("auth_users_email_unique").on(t.email)]);
+export const authSessions = statsarena.table("auth_sessions", {
+  id: text("id").primaryKey(), token: text("token").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  userId: text("user_id").notNull().references(() => authUsers.id, { onDelete: "cascade" }),
+  ipAddress: text("ip_address"), userAgent: text("user_agent"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+}, t => [uniqueIndex("auth_sessions_token_unique").on(t.token), index("auth_sessions_user_idx").on(t.userId)]);
+export const authAccounts = statsarena.table("auth_accounts", {
+  id: text("id").primaryKey(), accountId: text("account_id").notNull(), providerId: text("provider_id").notNull(),
+  userId: text("user_id").notNull().references(() => authUsers.id, { onDelete: "cascade" }), password: text("password"),
+  accessToken: text("access_token"), refreshToken: text("refresh_token"), idToken: text("id_token"), scope: text("scope"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }), refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+}, t => [index("auth_accounts_user_idx").on(t.userId), uniqueIndex("auth_accounts_provider_unique").on(t.providerId, t.accountId)]);
+export const authVerifications = statsarena.table("auth_verifications", {
+  id: text("id").primaryKey(), identifier: text("identifier").notNull(), value: text("value").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+}, t => [index("auth_verifications_identifier_idx").on(t.identifier)]);
+export const authRateLimits = statsarena.table("auth_rate_limits", {
+  id: text("id").primaryKey(), key: text("key").notNull(), count: integer("count").notNull(), lastRequest: bigint("last_request", { mode: "number" }).notNull()
+}, t => [uniqueIndex("auth_rate_limits_key_unique").on(t.key)]);
+export const authClubAccess = statsarena.table("auth_club_access", {
+  id: uuid("id").primaryKey().defaultRandom(), userId: text("user_id").notNull().references(() => authUsers.id, { onDelete: "cascade" }),
+  competitionKey: text("competition_key").notNull(), clubSourceId: text("club_source_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+}, t => [uniqueIndex("auth_club_access_unique").on(t.userId, t.competitionKey, t.clubSourceId)]);
+export const authInvitations = statsarena.table("auth_invitations", {
+  id: uuid("id").primaryKey().defaultRandom(), tokenHash: text("token_hash").notNull(), email: text("email").notNull(),
+  grants: jsonb("grants").$type<Array<{ competitionKey: string; clubSourceId: string }>>().notNull(),
+  makeAdmin: boolean("make_admin").notNull().default(false),
+  createdByUserId: text("created_by_user_id").references(() => authUsers.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(), expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }), revokedAt: timestamp("revoked_at", { withTimezone: true })
+}, t => [uniqueIndex("auth_invitations_hash_unique").on(t.tokenHash), index("auth_invitations_email_idx").on(t.email)]);
+
 export const schema = {
+  authUsers, authSessions, authAccounts, authVerifications, authRateLimits, authClubAccess, authInvitations,
   competitions,
   teams,
   players,

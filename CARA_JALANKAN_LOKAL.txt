@@ -1,0 +1,28 @@
+CARA MENJALANKAN STATSARENA DI LOKAL
+
+1. Buka Terminal.
+
+2. Masuk ke folder proyek:
+   cd /Users/rezel/Cursor/StatsArena
+
+3. Jalankan dashboard:
+   pnpm --dir dashboard run dev
+
+4. Tunggu sampai muncul pesan Ready, lalu buka:
+   http://localhost:3000/reports
+
+5. Login memakai akun yang sudah dibuat.
+
+CATATAN
+
+- Halaman berjalan di komputer lokal. Statistik dan akun tetap dibaca
+  dari Neon, jadi komputer perlu terhubung ke internet.
+- Konfigurasi memakai file .env di folder utama StatsArena yang sudah
+  disiapkan. Jangan membagikan isi file .env.
+- Gunakan Node.js minimal 22.19 dan pnpm 12.9.1.
+- Jika baru memasang proyek, jalankan perintah berikut dari folder
+  StatsArena sebelum menjalankan dashboard:
+  pnpm install
+- Untuk menghentikan server, tekan Ctrl+C pada Terminal.
+- Jika port 3000 sedang dipakai, hentikan server sebelumnya lalu
+  jalankan kembali perintah pada langkah 3.

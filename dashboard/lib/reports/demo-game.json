@@ -1,0 +1,1266 @@
+{
+  "competition": {
+    "key": "IBL:42041",
+    "name": "IBL All Indonesian 2025",
+    "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041"
+  },
+  "fixture": {
+    "sourceId": "2697582",
+    "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/boxscore?",
+    "homeTeamSourceId": "170782",
+    "awayTeamSourceId": "126041",
+    "homeTeamName": "Rajawali Medan",
+    "awayTeamName": "Satria Muda Pertamina Bandung",
+    "homeScore": 56,
+    "awayScore": 84,
+    "scheduledAtRaw": "Aug 16, 2025, 11:30 AM",
+    "venue": "GOR Indoor Manahan",
+    "status": "complete"
+  },
+  "teams": [
+    {
+      "sourceId": "170782",
+      "name": "Rajawali Medan",
+      "stats": {
+        "minutes": null,
+        "points": 56,
+        "fieldGoalsMade": 21,
+        "fieldGoalsAttempted": 63,
+        "twoPointsMade": 17,
+        "twoPointAttempts": 44,
+        "threePointsMade": 4,
+        "threePointAttempts": 19,
+        "freeThrowsMade": 10,
+        "freeThrowAttempts": 17,
+        "offensiveRebounds": 12,
+        "defensiveRebounds": 31,
+        "rebounds": 43,
+        "assists": 19,
+        "steals": 8,
+        "blocks": 0,
+        "turnovers": 23,
+        "personalFouls": 14
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 21,
+            "3PM": 4
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 63,
+            "3PA": 19
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "126041",
+      "name": "Satria Muda Pertamina Bandung",
+      "stats": {
+        "minutes": null,
+        "points": 84,
+        "fieldGoalsMade": 30,
+        "fieldGoalsAttempted": 78,
+        "twoPointsMade": 23,
+        "twoPointAttempts": 46,
+        "threePointsMade": 7,
+        "threePointAttempts": 32,
+        "freeThrowsMade": 17,
+        "freeThrowAttempts": 21,
+        "offensiveRebounds": 17,
+        "defensiveRebounds": 34,
+        "rebounds": 51,
+        "assists": 21,
+        "steals": 18,
+        "blocks": 1,
+        "turnovers": 15,
+        "personalFouls": 17
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 30,
+            "3PM": 7
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 78,
+            "3PA": 32
+          }
+        }
+      }
+    }
+  ],
+  "players": [
+    {
+      "sourceId": "2306231",
+      "teamSourceId": "170782",
+      "name": "A. Manuel",
+      "jerseyNumber": "5",
+      "minutesRaw": "29:40",
+      "stats": {
+        "minutes": 29.666666666666668,
+        "points": 8,
+        "fieldGoalsMade": 3,
+        "fieldGoalsAttempted": 9,
+        "twoPointsMade": 3,
+        "twoPointAttempts": 7,
+        "threePointsMade": 0,
+        "threePointAttempts": 2,
+        "freeThrowsMade": 2,
+        "freeThrowAttempts": 2,
+        "offensiveRebounds": 3,
+        "defensiveRebounds": 5,
+        "rebounds": 8,
+        "assists": 4,
+        "steals": 2,
+        "blocks": 0,
+        "turnovers": 4,
+        "personalFouls": 2
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 3,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 9,
+            "3PA": 2
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1438154",
+      "teamSourceId": "170782",
+      "name": "A. Christianto",
+      "jerseyNumber": "12",
+      "minutesRaw": "23:58",
+      "stats": {
+        "minutes": 23.966666666666665,
+        "points": 5,
+        "fieldGoalsMade": 2,
+        "fieldGoalsAttempted": 6,
+        "twoPointsMade": 1,
+        "twoPointAttempts": 3,
+        "threePointsMade": 1,
+        "threePointAttempts": 3,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 0,
+        "offensiveRebounds": 0,
+        "defensiveRebounds": 1,
+        "rebounds": 1,
+        "assists": 5,
+        "steals": 2,
+        "blocks": 0,
+        "turnovers": 2,
+        "personalFouls": 1
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 2,
+            "3PM": 1
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 6,
+            "3PA": 3
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "2199960",
+      "teamSourceId": "170782",
+      "name": "D. Sebastian",
+      "jerseyNumber": "18",
+      "minutesRaw": "27:11",
+      "stats": {
+        "minutes": 27.183333333333334,
+        "points": 12,
+        "fieldGoalsMade": 5,
+        "fieldGoalsAttempted": 13,
+        "twoPointsMade": 3,
+        "twoPointAttempts": 10,
+        "threePointsMade": 2,
+        "threePointAttempts": 3,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 2,
+        "offensiveRebounds": 2,
+        "defensiveRebounds": 6,
+        "rebounds": 8,
+        "assists": 2,
+        "steals": 0,
+        "blocks": 0,
+        "turnovers": 5,
+        "personalFouls": 1
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 5,
+            "3PM": 2
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 13,
+            "3PA": 3
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "2384254",
+      "teamSourceId": "170782",
+      "name": "D. Frans",
+      "jerseyNumber": "15",
+      "minutesRaw": "19:01",
+      "stats": {
+        "minutes": 19.016666666666666,
+        "points": 7,
+        "fieldGoalsMade": 3,
+        "fieldGoalsAttempted": 5,
+        "twoPointsMade": 3,
+        "twoPointAttempts": 5,
+        "threePointsMade": 0,
+        "threePointAttempts": 0,
+        "freeThrowsMade": 1,
+        "freeThrowAttempts": 2,
+        "offensiveRebounds": 0,
+        "defensiveRebounds": 3,
+        "rebounds": 3,
+        "assists": 2,
+        "steals": 0,
+        "blocks": 0,
+        "turnovers": 3,
+        "personalFouls": 2
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 3,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 5,
+            "3PA": 0
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1945900",
+      "teamSourceId": "170782",
+      "name": "J. Oei",
+      "jerseyNumber": "7",
+      "minutesRaw": "19:15",
+      "stats": {
+        "minutes": 19.25,
+        "points": 8,
+        "fieldGoalsMade": 3,
+        "fieldGoalsAttempted": 9,
+        "twoPointsMade": 2,
+        "twoPointAttempts": 3,
+        "threePointsMade": 1,
+        "threePointAttempts": 6,
+        "freeThrowsMade": 1,
+        "freeThrowAttempts": 2,
+        "offensiveRebounds": 0,
+        "defensiveRebounds": 1,
+        "rebounds": 1,
+        "assists": 1,
+        "steals": 1,
+        "blocks": 0,
+        "turnovers": 2,
+        "personalFouls": 0
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 3,
+            "3PM": 1
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 9,
+            "3PA": 6
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1761952",
+      "teamSourceId": "170782",
+      "name": "J. Wongso",
+      "jerseyNumber": "45",
+      "minutesRaw": "27:22",
+      "stats": {
+        "minutes": 27.366666666666667,
+        "points": 2,
+        "fieldGoalsMade": 0,
+        "fieldGoalsAttempted": 2,
+        "twoPointsMade": 0,
+        "twoPointAttempts": 2,
+        "threePointsMade": 0,
+        "threePointAttempts": 0,
+        "freeThrowsMade": 2,
+        "freeThrowAttempts": 4,
+        "offensiveRebounds": 1,
+        "defensiveRebounds": 5,
+        "rebounds": 6,
+        "assists": 1,
+        "steals": 1,
+        "blocks": 0,
+        "turnovers": 2,
+        "personalFouls": 2
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 0,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 2,
+            "3PA": 0
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "2483669",
+      "teamSourceId": "170782",
+      "name": "K. Megantara",
+      "jerseyNumber": "78",
+      "minutesRaw": "9:15",
+      "stats": {
+        "minutes": 9.25,
+        "points": 0,
+        "fieldGoalsMade": 0,
+        "fieldGoalsAttempted": 2,
+        "twoPointsMade": 0,
+        "twoPointAttempts": 2,
+        "threePointsMade": 0,
+        "threePointAttempts": 0,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 0,
+        "offensiveRebounds": 2,
+        "defensiveRebounds": 2,
+        "rebounds": 4,
+        "assists": 1,
+        "steals": 1,
+        "blocks": 0,
+        "turnovers": 0,
+        "personalFouls": 1
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 0,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 2,
+            "3PA": 0
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1761988",
+      "teamSourceId": "170782",
+      "name": "K. Aji",
+      "jerseyNumber": "11",
+      "minutesRaw": "0:00",
+      "stats": {
+        "minutes": 0,
+        "points": 0,
+        "fieldGoalsMade": 0,
+        "fieldGoalsAttempted": 0,
+        "twoPointsMade": 0,
+        "twoPointAttempts": 0,
+        "threePointsMade": 0,
+        "threePointAttempts": 0,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 0,
+        "offensiveRebounds": 0,
+        "defensiveRebounds": 0,
+        "rebounds": 0,
+        "assists": 0,
+        "steals": 0,
+        "blocks": 0,
+        "turnovers": 0,
+        "personalFouls": 0
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 0,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 0,
+            "3PA": 0
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "2306234",
+      "teamSourceId": "170782",
+      "name": "M. Keanu Syahputra",
+      "jerseyNumber": "22",
+      "minutesRaw": "16:19",
+      "stats": {
+        "minutes": 16.316666666666666,
+        "points": 14,
+        "fieldGoalsMade": 5,
+        "fieldGoalsAttempted": 15,
+        "twoPointsMade": 5,
+        "twoPointAttempts": 11,
+        "threePointsMade": 0,
+        "threePointAttempts": 4,
+        "freeThrowsMade": 4,
+        "freeThrowAttempts": 5,
+        "offensiveRebounds": 2,
+        "defensiveRebounds": 1,
+        "rebounds": 3,
+        "assists": 0,
+        "steals": 0,
+        "blocks": 0,
+        "turnovers": 3,
+        "personalFouls": 4
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 5,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 15,
+            "3PA": 4
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1761777",
+      "teamSourceId": "170782",
+      "name": "S. Asyruna",
+      "jerseyNumber": "9",
+      "minutesRaw": "14:22",
+      "stats": {
+        "minutes": 14.366666666666667,
+        "points": 0,
+        "fieldGoalsMade": 0,
+        "fieldGoalsAttempted": 1,
+        "twoPointsMade": 0,
+        "twoPointAttempts": 0,
+        "threePointsMade": 0,
+        "threePointAttempts": 1,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 0,
+        "offensiveRebounds": 0,
+        "defensiveRebounds": 3,
+        "rebounds": 3,
+        "assists": 2,
+        "steals": 1,
+        "blocks": 0,
+        "turnovers": 1,
+        "personalFouls": 0
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 0,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 1,
+            "3PA": 1
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "2306232",
+      "teamSourceId": "170782",
+      "name": "W. Mamahit Pontoh",
+      "jerseyNumber": "6",
+      "minutesRaw": "13:31",
+      "stats": {
+        "minutes": 13.516666666666667,
+        "points": 0,
+        "fieldGoalsMade": 0,
+        "fieldGoalsAttempted": 1,
+        "twoPointsMade": 0,
+        "twoPointAttempts": 1,
+        "threePointsMade": 0,
+        "threePointAttempts": 0,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 0,
+        "offensiveRebounds": 0,
+        "defensiveRebounds": 1,
+        "rebounds": 1,
+        "assists": 1,
+        "steals": 0,
+        "blocks": 0,
+        "turnovers": 0,
+        "personalFouls": 1
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 0,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 1,
+            "3PA": 0
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1438081",
+      "teamSourceId": "126041",
+      "name": "A. Grahita",
+      "jerseyNumber": "4",
+      "minutesRaw": "22:04",
+      "stats": {
+        "minutes": 22.066666666666666,
+        "points": 5,
+        "fieldGoalsMade": 2,
+        "fieldGoalsAttempted": 9,
+        "twoPointsMade": 1,
+        "twoPointAttempts": 4,
+        "threePointsMade": 1,
+        "threePointAttempts": 5,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 0,
+        "offensiveRebounds": 1,
+        "defensiveRebounds": 1,
+        "rebounds": 2,
+        "assists": 4,
+        "steals": 2,
+        "blocks": 0,
+        "turnovers": 2,
+        "personalFouls": 1
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 2,
+            "3PM": 1
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 9,
+            "3PA": 5
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1622781",
+      "teamSourceId": "126041",
+      "name": "A. Alhadar",
+      "jerseyNumber": "13",
+      "minutesRaw": "12:52",
+      "stats": {
+        "minutes": 12.866666666666667,
+        "points": 9,
+        "fieldGoalsMade": 2,
+        "fieldGoalsAttempted": 5,
+        "twoPointsMade": 2,
+        "twoPointAttempts": 3,
+        "threePointsMade": 0,
+        "threePointAttempts": 2,
+        "freeThrowsMade": 5,
+        "freeThrowAttempts": 6,
+        "offensiveRebounds": 1,
+        "defensiveRebounds": 4,
+        "rebounds": 5,
+        "assists": 1,
+        "steals": 2,
+        "blocks": 0,
+        "turnovers": 1,
+        "personalFouls": 0
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 2,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 5,
+            "3PA": 2
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1438180",
+      "teamSourceId": "126041",
+      "name": "A. Erga",
+      "jerseyNumber": "1",
+      "minutesRaw": "17:13",
+      "stats": {
+        "minutes": 17.216666666666665,
+        "points": 6,
+        "fieldGoalsMade": 3,
+        "fieldGoalsAttempted": 9,
+        "twoPointsMade": 3,
+        "twoPointAttempts": 5,
+        "threePointsMade": 0,
+        "threePointAttempts": 4,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 0,
+        "offensiveRebounds": 2,
+        "defensiveRebounds": 3,
+        "rebounds": 5,
+        "assists": 4,
+        "steals": 2,
+        "blocks": 0,
+        "turnovers": 2,
+        "personalFouls": 1
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 3,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 9,
+            "3PA": 4
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1438174",
+      "teamSourceId": "126041",
+      "name": "A. Seputra",
+      "jerseyNumber": "23",
+      "minutesRaw": "22:04",
+      "stats": {
+        "minutes": 22.066666666666666,
+        "points": 6,
+        "fieldGoalsMade": 2,
+        "fieldGoalsAttempted": 6,
+        "twoPointsMade": 2,
+        "twoPointAttempts": 4,
+        "threePointsMade": 0,
+        "threePointAttempts": 2,
+        "freeThrowsMade": 2,
+        "freeThrowAttempts": 4,
+        "offensiveRebounds": 0,
+        "defensiveRebounds": 7,
+        "rebounds": 7,
+        "assists": 1,
+        "steals": 0,
+        "blocks": 0,
+        "turnovers": 1,
+        "personalFouls": 1
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 2,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 6,
+            "3PA": 2
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1762010",
+      "teamSourceId": "126041",
+      "name": "J. Chalias",
+      "jerseyNumber": "14",
+      "minutesRaw": "16:25",
+      "stats": {
+        "minutes": 16.416666666666668,
+        "points": 11,
+        "fieldGoalsMade": 4,
+        "fieldGoalsAttempted": 9,
+        "twoPointsMade": 4,
+        "twoPointAttempts": 9,
+        "threePointsMade": 0,
+        "threePointAttempts": 0,
+        "freeThrowsMade": 3,
+        "freeThrowAttempts": 4,
+        "offensiveRebounds": 5,
+        "defensiveRebounds": 1,
+        "rebounds": 6,
+        "assists": 0,
+        "steals": 2,
+        "blocks": 1,
+        "turnovers": 0,
+        "personalFouls": 2
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 4,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 9,
+            "3PA": 0
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1945894",
+      "teamSourceId": "126041",
+      "name": "K. Utiarahman",
+      "jerseyNumber": "11",
+      "minutesRaw": "17:13",
+      "stats": {
+        "minutes": 17.216666666666665,
+        "points": 9,
+        "fieldGoalsMade": 3,
+        "fieldGoalsAttempted": 7,
+        "twoPointsMade": 3,
+        "twoPointAttempts": 5,
+        "threePointsMade": 0,
+        "threePointAttempts": 2,
+        "freeThrowsMade": 3,
+        "freeThrowAttempts": 3,
+        "offensiveRebounds": 2,
+        "defensiveRebounds": 4,
+        "rebounds": 6,
+        "assists": 0,
+        "steals": 0,
+        "blocks": 0,
+        "turnovers": 2,
+        "personalFouls": 2
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 3,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 7,
+            "3PA": 2
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1622791",
+      "teamSourceId": "126041",
+      "name": "K. Sanjaya",
+      "jerseyNumber": "3",
+      "minutesRaw": "8:50",
+      "stats": {
+        "minutes": 8.833333333333334,
+        "points": 2,
+        "fieldGoalsMade": 0,
+        "fieldGoalsAttempted": 1,
+        "twoPointsMade": 0,
+        "twoPointAttempts": 1,
+        "threePointsMade": 0,
+        "threePointAttempts": 0,
+        "freeThrowsMade": 2,
+        "freeThrowAttempts": 2,
+        "offensiveRebounds": 1,
+        "defensiveRebounds": 3,
+        "rebounds": 4,
+        "assists": 0,
+        "steals": 2,
+        "blocks": 0,
+        "turnovers": 0,
+        "personalFouls": 0
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 0,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 1,
+            "3PA": 0
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1438156",
+      "teamSourceId": "126041",
+      "name": "M. Aziz",
+      "jerseyNumber": "8",
+      "minutesRaw": "17:38",
+      "stats": {
+        "minutes": 17.633333333333333,
+        "points": 8,
+        "fieldGoalsMade": 3,
+        "fieldGoalsAttempted": 6,
+        "twoPointsMade": 1,
+        "twoPointAttempts": 2,
+        "threePointsMade": 2,
+        "threePointAttempts": 4,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 0,
+        "offensiveRebounds": 1,
+        "defensiveRebounds": 1,
+        "rebounds": 2,
+        "assists": 0,
+        "steals": 2,
+        "blocks": 0,
+        "turnovers": 1,
+        "personalFouls": 2
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 3,
+            "3PM": 2
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 6,
+            "3PA": 4
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1622778",
+      "teamSourceId": "126041",
+      "name": "M. Davidson",
+      "jerseyNumber": "24",
+      "minutesRaw": "7:55",
+      "stats": {
+        "minutes": 7.916666666666667,
+        "points": 6,
+        "fieldGoalsMade": 2,
+        "fieldGoalsAttempted": 4,
+        "twoPointsMade": 0,
+        "twoPointAttempts": 0,
+        "threePointsMade": 2,
+        "threePointAttempts": 4,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 0,
+        "offensiveRebounds": 0,
+        "defensiveRebounds": 0,
+        "rebounds": 0,
+        "assists": 0,
+        "steals": 0,
+        "blocks": 0,
+        "turnovers": 2,
+        "personalFouls": 2
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 2,
+            "3PM": 2
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 4,
+            "3PA": 4
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1438170",
+      "teamSourceId": "126041",
+      "name": "P. Wiguna",
+      "jerseyNumber": "16",
+      "minutesRaw": "14:43",
+      "stats": {
+        "minutes": 14.716666666666667,
+        "points": 9,
+        "fieldGoalsMade": 4,
+        "fieldGoalsAttempted": 5,
+        "twoPointsMade": 4,
+        "twoPointAttempts": 5,
+        "threePointsMade": 0,
+        "threePointAttempts": 0,
+        "freeThrowsMade": 1,
+        "freeThrowAttempts": 1,
+        "offensiveRebounds": 2,
+        "defensiveRebounds": 3,
+        "rebounds": 5,
+        "assists": 0,
+        "steals": 2,
+        "blocks": 0,
+        "turnovers": 1,
+        "personalFouls": 2
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 4,
+            "3PM": 0
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 5,
+            "3PA": 0
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1438124",
+      "teamSourceId": "126041",
+      "name": "W. Teja",
+      "jerseyNumber": "71",
+      "minutesRaw": "18:34",
+      "stats": {
+        "minutes": 18.566666666666666,
+        "points": 10,
+        "fieldGoalsMade": 4,
+        "fieldGoalsAttempted": 7,
+        "twoPointsMade": 3,
+        "twoPointAttempts": 5,
+        "threePointsMade": 1,
+        "threePointAttempts": 2,
+        "freeThrowsMade": 1,
+        "freeThrowAttempts": 1,
+        "offensiveRebounds": 0,
+        "defensiveRebounds": 3,
+        "rebounds": 3,
+        "assists": 6,
+        "steals": 0,
+        "blocks": 0,
+        "turnovers": 1,
+        "personalFouls": 2
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 4,
+            "3PM": 1
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 7,
+            "3PA": 2
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "1622783",
+      "teamSourceId": "126041",
+      "name": "Y. Saputera",
+      "jerseyNumber": "26",
+      "minutesRaw": "24:22",
+      "stats": {
+        "minutes": 24.366666666666667,
+        "points": 3,
+        "fieldGoalsMade": 1,
+        "fieldGoalsAttempted": 10,
+        "twoPointsMade": 0,
+        "twoPointAttempts": 3,
+        "threePointsMade": 1,
+        "threePointAttempts": 7,
+        "freeThrowsMade": 0,
+        "freeThrowAttempts": 0,
+        "offensiveRebounds": 1,
+        "defensiveRebounds": 2,
+        "rebounds": 3,
+        "assists": 5,
+        "steals": 4,
+        "blocks": 0,
+        "turnovers": 1,
+        "personalFouls": 2
+      },
+      "statDerivations": {
+        "twoPointsMade": {
+          "formula": "FGM - 3PM",
+          "version": "1",
+          "inputs": {
+            "FGM": 1,
+            "3PM": 1
+          }
+        },
+        "twoPointAttempts": {
+          "formula": "FGA - 3PA",
+          "version": "1",
+          "inputs": {
+            "FGA": 10,
+            "3PA": 7
+          }
+        }
+      }
+    }
+  ],
+  "periodEnds": [
+    {
+      "period": 1,
+      "sourceSequence": 144,
+      "homeScore": 15,
+      "awayScore": 20
+    },
+    {
+      "period": 2,
+      "sourceSequence": 323,
+      "homeScore": 27,
+      "awayScore": 45
+    },
+    {
+      "period": 3,
+      "sourceSequence": 467,
+      "homeScore": 42,
+      "awayScore": 73
+    },
+    {
+      "period": 4,
+      "sourceSequence": 599,
+      "homeScore": 56,
+      "awayScore": 84
+    }
+  ],
+  "provenance": {
+    "auditFile": "IBL:42041-sync-2026-10-16T06-55-27-702Z.json",
+    "auditCreatedAt": "2026-10-16T06:56:57.056Z",
+    "parserVersion": "statsarena-parser/0.2.4",
+    "resources": [
+      {
+        "resource": "summary",
+        "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/summary",
+        "fetchedAt": "2026-10-16T06:55:33.040Z",
+        "sha256": "1debe1c62a50ca8ab603d068c24ba0726467437a8c5c2f739612a4cbef8b267d",
+        "parseStatus": "parsed"
+      },
+      {
+        "resource": "shotchart",
+        "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/shotchart?",
+        "fetchedAt": "2026-10-16T06:55:07.348Z",
+        "sha256": "e2128622968520b5d29504eb10a421fa0c338477092e09ec2e73e0700d081be0",
+        "parseStatus": "parsed"
+      },
+      {
+        "resource": "boxscore",
+        "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/boxscore?",
+        "fetchedAt": "2026-10-16T06:55:05.723Z",
+        "sha256": "4f8690ec77b71b6ada27a13d12b74e0581fb1f9a79e7de1caed93e6711f5bd03",
+        "parseStatus": "parsed"
+      },
+      {
+        "resource": "playbyplay",
+        "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/playbyplay?",
+        "fetchedAt": "2026-10-16T06:55:09.040Z",
+        "sha256": "41e3ad92c310048be10415581a179880be1f2d3c65defcf6422417a713734e1c",
+        "parseStatus": "parsed"
+      }
+    ],
+    "quality": {
+      "summary": {
+        "status": "parsed",
+        "category": null,
+        "checkedAt": "2026-10-16T06:55:55.360Z",
+        "nextRetryAt": null,
+        "consecutiveFailures": 0,
+        "issues": [
+          {
+            "code": "MATCH_DETAIL_TAB_UNAVAILABLE",
+            "severity": "warning",
+            "message": "Tautan Team Analysis tidak tersedia pada navigasi pertandingan sumber.",
+            "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/summary",
+            "fieldPath": "tabs.analysis",
+            "expected": null,
+            "actual": null
+          }
+        ]
+      },
+      "boxScore": {
+        "status": "parsed",
+        "category": null,
+        "checkedAt": "2026-10-16T06:55:55.360Z",
+        "nextRetryAt": null,
+        "consecutiveFailures": 0,
+        "issues": []
+      },
+      "playByPlay": {
+        "status": "parsed",
+        "category": null,
+        "checkedAt": "2026-10-16T06:55:55.360Z",
+        "nextRetryAt": null,
+        "consecutiveFailures": 0,
+        "issues": [
+          {
+            "code": "PBP_EVENT_TEXT_UNAVAILABLE",
+            "severity": "info",
+            "message": "Sumber menampilkan event tanpa teks aksi; kelas dan nilai mentah tetap disimpan.",
+            "sourceUrl": "https://hosted.dcd.shared.geniussports.com/IBL/en/competition/42041/match/2697582/playbyplay?",
+            "fieldPath": "events.352.actionText",
+            "expected": null,
+            "actual": null
+          }
+        ]
+      },
+      "shotChart": {
+        "status": "parsed",
+        "category": null,
+        "checkedAt": "2026-10-16T06:55:55.360Z",
+        "nextRetryAt": null,
+        "consecutiveFailures": 0,
+        "issues": []
+      },
+      "analysis": {
+        "status": "unavailable",
+        "category": null,
+        "checkedAt": "2026-10-16T06:55:55.360Z",
+        "nextRetryAt": null,
+        "consecutiveFailures": 0,
+        "issues": []
+      }
+    }
+  }
+}

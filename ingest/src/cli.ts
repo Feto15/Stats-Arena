@@ -77,8 +77,8 @@ function showHelp(): void {
     `  catalog rebuild [--snapshot-dir <path>]\n` +
     `  analysis export --competition <URL|ID> [--audit <file>] [--dry-run]\n` +
     `  metrics backfill [--competition <URL|ID>] [--dry-run] [--snapshot-dir <path>]\n` +
-    `  livestats sync --competition <URL|ID> [--game <ID>] [--dry-run] [--refresh] [--match-limit <n>]\n` +
-    `  livestats backfill [--competition <URL|ID>] [--dry-run] [--refresh] [--match-limit <n>]\n` +
+    `  livestats sync --competition <URL|ID> [--game <ID>] [--dry-run] [--refresh | --snapshot-only] [--match-limit <n>]\n` +
+    `  livestats backfill [--competition <URL|ID>] [--dry-run] [--refresh | --snapshot-only] [--match-limit <n>]\n` +
     `  retry --competition <URL|ID> [--audit <file>] [--dry-run] [--incremental] [--snapshot-dir <path>]\n` +
     `  storage compact [--dry-run] [--snapshot-dir <path>]\n` +
     `  storage compact-neon [--dry-run]\n` +
@@ -456,7 +456,7 @@ async function runSnapshotRead(args: ParsedArgs): Promise<void> {
 async function runLiveStats(args: ParsedArgs): Promise<void> {
   const mode = args.positional[0];
   if (mode !== "sync" && mode !== "backfill") throw new Error("Gunakan livestats sync atau livestats backfill.");
-  if (args.flags.has("snapshot-only")) throw new Error("LiveStats memakai snapshot terpisah; snapshot-only belum tersedia.");
+  if (args.flags.has("snapshot-only") && args.flags.has("refresh")) throw new Error("snapshot-only tidak dapat digabung dengan refresh.");
   const requested = args.values.get("competition");
   const gameId = args.values.get("game");
   if (gameId && (!/^[1-9]\d*$/.test(gameId) || !requested)) throw new Error("--game memerlukan ID laga valid dan --competition.");
@@ -486,7 +486,7 @@ async function runLiveStats(args: ParsedArgs): Promise<void> {
         try {
           return await syncLiveStatsCompetition(connection.db, input, resolve(directory, "livestats"), {
             catalog: catalogOptions(directory),
-            dryRun: args.flags.has("dry-run"), forceRefresh: args.flags.has("refresh"),
+            dryRun: args.flags.has("dry-run"), forceRefresh: args.flags.has("refresh"), snapshotOnly: args.flags.has("snapshot-only"),
             ...(gameId ? { gameIds: new Set([gameId]) } : {}),
             ...(matchLimit(args) !== undefined ? { matchLimit: matchLimit(args)! } : {}),
             guard: async tx => {

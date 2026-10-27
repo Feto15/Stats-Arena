@@ -6,6 +6,7 @@
     "node": ">=22.19.0"
   },
   "scripts": {
+    "auth:bootstrap": "node --import tsx scripts/auth-bootstrap.ts",
     "dev": "next dev --hostname 127.0.0.1 --webpack",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit --incremental false -p tsconfig.json",
@@ -14,7 +15,9 @@
     "start": "next start"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.12",
     "@statsarena/db": "workspace:*",
+    "better-auth": "^1.7.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.3",
@@ -29,8 +32,8 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.0.0",
     "@electric-sql/pglite": "^0.3.14",
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.19.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

@@ -13,3 +13,4 @@ ingest/snapshots/
 ingest/audit/
 ingest/.locks/
 .DS_Store
+dashboard/.auth-bootstrap.json

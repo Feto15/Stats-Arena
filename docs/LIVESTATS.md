@@ -1,12 +1,20 @@
 # LiveStats sebagai pelengkap portal
 
-Implementasi 16 Oktober 2026, diperbarui 17 Oktober 2026 dengan adapter `statsarena-livestats/1.0.1`. Portal tetap menentukan kompetisi, jadwal, klasemen, ID global, dan statistik dasar. LiveStats melengkapi pertandingan tersimpan; tidak membuat kompetisi, tim, pemain, atau laga baru.
+Implementasi 16 Oktober 2026, diperbarui 26 Oktober 2026 dengan adapter `statsarena-livestats/1.0.2`. Portal tetap menentukan kompetisi, jadwal, klasemen, ID global, dan statistik dasar. LiveStats melengkapi pertandingan tersimpan; tidak membuat kompetisi, tim, pemain, atau laga baru.
 
 ## Alur dan pemetaan
 
 CLI sync/retry/runner memperbarui LiveStats setelah commit portal. Seleksi tambahannya independen dari incremental portal sehingga laga lama yang belum memiliki tambahan tetap diperiksa. Halaman kandidat `/u/IBF|IBL/<match>/bs.html` hanya diterima setelah namespace, `matchId`, `compId`, dan `datapath` cocok. JSON diambil dari path terverifikasi tanpa menjalankan script sumber.
 
 Tim harus cocok berdasarkan sisi home/away, nama penuh/pendek eksplisit sumber, skor, dan 17 statistik dasar. OFF/DEF dapat dicocokkan dengan mengurangi komponen team rebound yang dinyatakan LiveStats secara eksplisit; angka portal tidak diubah. Pemain harus menghasilkan satu kecocokan melalui tim, nomor jersey, nama penuh/scoreboard, dan 17 statistik dasar. Tidak memakai nama saja, fuzzy matching, urutan baris, atau ID lokal sebagai ID global.
+
+Pada versi 1.0.2, nama juga dapat dicocokkan dengan **inisial pertama + familyName lengkap** yang diturunkan dari pasangan `firstName/familyName` atau `internationalFirstName/internationalFamilyName` eksplisit pada baris yang sama. Contohnya `Elang Satria` + `Rajendra Dewanto` mendukung nama portal `E. Rajendra Dewanto`, meskipun scoreboard menulis `E. R Dewanto`. Ini bukan pencocokan awalan/kemiripan; satu kandidat unik dengan tim, jersey, dan seluruh 17 core stats tetap wajib. Nama/ID portal tidak diganti. Helper bersama `@statsarena/db/livestats` dipakai adapter dan validator rotasi.
+
+Ekspor laporan lokal menyimpan enam field bukti nama asli pada `nameEvidence`, bersama hash/URL/waktu JSON yang tidak berubah. Validator rotasi `statsarena-demo-rotation/1.2.0` memeriksa bahwa nama portal didukung bukti ini sebelum menerima alias aktor PBP pada local ID dan jersey yang cocok. Data versi 1.0.2 tanpa bukti nama ditahan; demo 1.0.1 tetap kompatibel. Tidak mengubah sumber PBP, clock, urutan, statistik inti, atau guard lima pemain/durasi/plus-minus.
+
+Fixture nyata 25 Oktober untuk laga `2938930` dan `2945705` berada pada `ingest/test/fixtures/livestats-2026-10-25-aliases/`. Fixture berisi objek `tm` sumber dan konteks portal; PBP/field JSON lain dihilangkan untuk membatasi ukuran. Manifest membedakan hash body sumber asli dan hash subset fixture, serta mencatat URL/waktu pengambilan.
+
+Verifikasi 26 Oktober: 27 test terarah (sembilan adapter/operasi LiveStats, 18 rotasi/on-off/laporan lokal), lint/typecheck workspace, dan build dashboard lulus. Test mencakup tiga nama 2026 yang sebelumnya gagal, penolakan kandidat ganda/jersey/core stats/aktor asing/bukti nama yang salah, serta kompatibilitas dua laga demo lama. Ekspor diulang dari arsip lokal tanpa fetch atau penulisan Neon. Browser mengonfirmasi kedua laga Hangtuah terverifikasi, 24 kombinasi pada laga pertama, dan Sitorus ON 10:49/OFF 29:11 dengan plus/minus +7 yang cocok; Dewa tidak lagi mengalami pesan pemetaan, tetapi tetap partial pada validasi lima pemain. Lebar 1440/390 px tidak meluber, log browser bersih, dan viewport dipulihkan. Pemeriksaan ini tidak membuktikan pembaruan payload Neon atau deployment runner baru.
 
 Skor pertandingan yang berbeda atau portal tanpa box score yang cukup menolak seluruh payload. Ketidakcocokan satu baris/tim tidak menghalangi baris lain yang lolos seluruh pemeriksaan; baris meragukan dilewati dan status menjadi partial. Payload valid sebelumnya tidak dihapus. Roster yang kehilangan baris mempertahankan baris lama. Bila field opsional hilang, seluruh baris valid sebelumnya dipertahankan agar provenance setiap angka tetap jelas. Setiap baris tambahan membawa hash/waktu/snapshot sumbernya sendiri.
 
@@ -84,3 +92,7 @@ Isu aktif kini juga tersedia di `/review?competition=<ref>&source=livestats`, de
 Detail laga menampilkan **Statistik tambahan LiveStats** secara server-side dalam scope kompetisi/game, termasuk plus/minus, starter/bench, posisi, metrik pemain/tim, status, waktu sumber, tautan, dan alasan review. Baris lama yang dipertahankan tetap membawa provenance asalnya.
 
 Fixture nyata DBL putra/putri dan IBL beserta URL/hash/tanggal ada pada `ingest/test/fixtures/livestats-2026-10-16/manifest.json`. Test mencakup pemetaan, nol/null, namespace/path, batas respons, retry, migrasi, dry-run, idempotensi, rollback, dan perlindungan data. Hasil Neon dicatat di [NEON_VERIFICATION.md](./NEON_VERIFICATION.md); investigasi sumber awal di [PERBANDINGAN_LIVESTATS_GENIUS.md](./PERBANDINGAN_LIVESTATS_GENIUS.md).
+
+### Adapter 1.1.0 dan report Neon — 26 Oktober 2026
+
+Payload pelengkap sekarang dapat membawa `rotation` berformat `statsarena-livestats-rotation/1.0.0`, berisi revisi event dan mapping dengan provenance immutable. Tidak mengganti PBP/shots/box score portal. Rekonstruksi tetap divalidasi terpisah saat report dibaca. Event atau mapping berkurang/hilang mempertahankan bukti sebelumnya dan mencatat partial; input identik tidak mengganti provenance. `livestats sync/backfill --snapshot-only` mendukung pembacaan cache tervalidasi tanpa HTTP dan tidak dapat digabung refresh. Cakupan, pengisian awal, dan verifikasi: [REPORTING_NEON.md](./REPORTING_NEON.md).

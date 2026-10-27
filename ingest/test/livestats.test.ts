@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
+import { z } from "zod";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
@@ -58,6 +59,33 @@ test("mapping rejects changed totals, missing/ambiguous players and conflicting 
     assert.ok(report.issues.length);
   }
   assert.throws(() => parseLiveStatsJson({ tm: { "1": { name: "Wrong", score: "25", pl: {} } } }, context));
+});
+
+test("real 2026 structured names resolve shortened family names while jersey, uniqueness and core stats remain mandatory", () => {
+  const core = z.record(z.enum(["points", "fieldGoalsMade", "fieldGoalsAttempted", "twoPointsMade", "twoPointAttempts", "threePointsMade", "threePointAttempts", "freeThrowsMade", "freeThrowAttempts", "offensiveRebounds", "defensiveRebounds", "rebounds", "assists", "steals", "blocks", "turnovers", "personalFouls"]), z.number().nullable());
+  const contextSchema = z.object({ gameId:z.string(),sourceGameId:z.string(),competitionUrl:z.url(),homeTeamId:z.string(),awayTeamId:z.string(),homeScore:z.number(),awayScore:z.number(),status:z.string(),
+    teams:z.array(core.and(z.object({teamId:z.string(),name:z.string()}))),players:z.array(core.and(z.object({playerId:z.string(),teamId:z.string(),name:z.string(),jerseyNumber:z.string().nullable()}))) });
+  const rawSchema=z.object({tm:z.record(z.string(),z.object({pl:z.record(z.string(),z.record(z.string(),z.unknown()))}).passthrough())}).passthrough();
+  for (const [id, players] of [["2938930", ["2483655","2842017"]], ["2945705", ["2384249"]]] as const) {
+    const parsed:unknown=JSON.parse(gunzipSync(readFileSync(new URL(`fixtures/livestats-2026-10-25-aliases/${id}.json.gz`,import.meta.url))).toString("utf8"));
+    const fixture=z.object({source:z.object({jsonUrl:z.url(),sha256:z.string().regex(/^[a-f0-9]{64}$/)}),portal:contextSchema,liveStats:rawSchema}).parse(parsed);
+    assert.equal(fixture.source.jsonUrl,`https://fibalivestats.dcd.shared.geniussports.com/data/${id}/data.json`);
+    const result=parseLiveStatsJson(fixture.liveStats,fixture.portal);
+    assert.equal(result.status,"ready",JSON.stringify(result.issues));assert.equal(result.payload!.players.length,24);
+    for(const target of players){
+      const matched=result.payload!.players.find(p=>p.playerId===target)!;assert.ok(matched);
+      const row=fixture.portal.players.find(p=>p.playerId===target)!;
+      assert.equal(matched.name,row.name,"canonical source name must not be replaced with an invented alias");
+      for(const altered of [
+        {...fixture.portal,players:fixture.portal.players.map(p=>p===row?{...p,jerseyNumber:"999"}:p)},
+        {...fixture.portal,players:fixture.portal.players.map(p=>p===row?{...p,points:(p.points??0)+1}:p)},
+        {...fixture.portal,players:[...fixture.portal.players,{...row,playerId:"ambiguous"}]}
+      ]){const rejected=parseLiveStatsJson(fixture.liveStats,altered);assert.equal(rejected.status,"partial");assert.ok(!rejected.payload!.players.some(p=>p.playerId===target));}
+      const missing=structuredClone(fixture.liveStats);const raw=missing.tm[matched.localTeamKey]!.pl[matched.localPlayerKey]!;
+      raw["internationalFamilyName"]="Other Family";
+      assert.ok(!parseLiveStatsJson(missing,fixture.portal).payload!.players.some(p=>p.playerId===target),"missing full family evidence cannot be repaired by fuzzy matching");
+    }
+  }
 });
 
 test("PIP/PFT/FBP conflicts are recorded independently without replacing either source", () => {
@@ -125,6 +153,9 @@ test("immutable provenance survives cache rotation; compaction protects referenc
     let body = '{"revision":1}';
     const client = new LiveStatsClient(directory, async () => new Response(body), async () => undefined);
     const first = await client.get(url); await client.accept(first);
+    await rm(first.snapshotPath);
+    const cachedAlias = await client.readSnapshot(url); assert.ok(cachedAlias);
+    await client.accept(cachedAlias); assert.ok((await stat(first.snapshotPath)).size,"cache-only import creates immutable evidence before storing its path");
     body = '{"revision":2}'; const second = await client.get(url); await client.accept(second);
     body = '{"revision":3}'; const third = await client.get(url); await client.accept(third);
     await client.compact(url, [first.hash]);
@@ -181,6 +212,12 @@ test("LiveStats migration/import is idempotent, scoped, preserves good data, sup
       assert.equal((await syncLiveStatsCompetition(db, "49607", directory, { client: source, guard })).selected, 0);
       await assert.rejects(syncLiveStatsCompetition(db, "49607", directory, { client: source, forceRefresh: true, guard: async () => { throw new Error("rollback of ready refresh"); } }), LiveStatsSyncError);
       assert.equal((await syncLiveStatsCompetition(db, "49607", directory, { client: source, guard })).selected, 1);
+      const noHttp = new LiveStatsClient(directory, async () => { throw new Error("HTTP must not run in snapshot-only mode"); });
+      const offline = await syncLiveStatsCompetition(db, "49607", directory, { client: noHttp, guard, snapshotOnly: true, now: new Date(Date.now() + 2 * 86_400_000) });
+      assert.equal(offline.statuses.ready, 1); assert.equal(offline.unchanged, 1);
+      const missing = await syncLiveStatsCompetition(db, "49607", join(root, "missing"), { client: new LiveStatsClient(join(root,"missing"), async () => { throw new Error("HTTP forbidden"); }), guard, snapshotOnly: true, now: new Date(Date.now() + 4 * 86_400_000) });
+      assert.equal(missing.statuses.fetch_failed, 1);
+      assert.deepEqual((await db.select().from(tables.gameLiveStats))[0]!.payload, saved.payload);
       denied = true;
       await syncLiveStatsCompetition(db, "49607", directory, { client: source, guard, forceRefresh: true });
       const preserved = (await db.select().from(tables.gameLiveStats))[0]!;
@@ -190,4 +227,19 @@ test("LiveStats migration/import is idempotent, scoped, preserves good data, sup
       await assert.rejects(syncLiveStatsCompetition(db, "IBL:49607", directory, { dryRun: true, client: source }), /sudah tersimpan/);
     } finally { await lease.release(); }
   } finally { await client.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test("rotation evidence retains exact source order and structured identity, survives shorter or missing revisions",()=>{
+  const raw=JSON.parse(fixture("2931666.json.gz"));
+  const first=parseLiveStatsJson(raw,portal()).payload!;
+  assert.ok(first.rotation);assert.equal(first.rotation.events.length,raw.pbp.length);
+  assert.equal(first.rotation.events[0]!["clock"],raw.pbp[0].clock);
+  assert.equal(first.rotation.teams.flatMap(t=>t.players).length,24);
+  assert.ok(first.rotation.teams.flatMap(t=>t.players).every(p=>p.minutesRaw!==null&&p.nameEvidence&&Object.keys(p.core).length===17));
+  const shorter=structuredClone(raw);shorter.pbp=shorter.pbp.slice(1);
+  assert.deepEqual(mergeSupplement(first,parseLiveStatsJson(shorter,portal()).payload!).rotation,first.rotation);
+  const fewer=structuredClone(first);fewer.rotation!.teams[0]!.players.pop();
+  assert.deepEqual(mergeSupplement(first,fewer).rotation,first.rotation);
+  const missing=structuredClone(raw);delete missing.pbp;
+  assert.deepEqual(mergeSupplement(first,parseLiveStatsJson(missing,portal()).payload!).rotation,first.rotation);
 });

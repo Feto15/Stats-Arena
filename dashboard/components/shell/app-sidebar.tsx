@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   CalendarRange,
   ClipboardCheck,
+  FileText,
   LayoutDashboard,
   Shield,
   Trophy,
@@ -29,6 +30,7 @@ const navigation = [
   { title: "Teams", href: "/teams", icon: Shield },
   { title: "Players", href: "/players", icon: Users },
   { title: "Standings", href: "/standings", icon: Trophy },
+  { title: "Club Reports", href: "/reports", icon: FileText },
   { title: "Review", href: "/review", icon: ClipboardCheck },
 ] as const;
 
@@ -77,7 +79,7 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton asChild isActive={active} className="h-9">
                       <Link
-                        href={withCompetition(item.href, competition)}
+                        href={item.href.startsWith("/reports") ? item.href : withCompetition(item.href, competition)}
                         aria-current={active ? "page" : undefined}
                         onClick={() => {
                           if (isMobile) setOpenMobile(false);

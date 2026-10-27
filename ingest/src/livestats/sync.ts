@@ -5,7 +5,7 @@ import { competitionReference } from "@statsarena/db/source";
 import type { LiveStatsIssue, LiveStatsStatus, LiveStatsSupplement } from "@statsarena/db/livestats";
 import type { ImportWriteGuard } from "../import/importer.js";
 import { parsedDataHash } from "../domain/content-hash.js";
-import { coreFields, parseLiveStatsJson, mergeSupplement, type PortalContext, type PortalCore } from "./parser.js";
+import { coreFields, parseLiveStatsJson, mergeSupplement, rotationEvidenceIsReduced, type PortalContext, type PortalCore } from "./parser.js";
 import { LiveStatsClient, LiveStatsFetchError, type LiveStatsResponse } from "./client.js";
 import { discoverLiveStatsData, liveStatsPageUrl, LIVESTATS_VERSION, LIVESTATS_HOST } from "./source.js";
 import { readPendingLiveStats, writePendingLiveStats } from "./pending.js";
@@ -13,7 +13,7 @@ import { updateLiveStatsCatalog, type CatalogOptions } from "../operations/compe
 
 type Saved = typeof gameLiveStats.$inferSelect;
 export interface LiveStatsSyncOptions {
-  dryRun?: boolean; forceRefresh?: boolean; matchLimit?: number; gameIds?: ReadonlySet<string>;
+  dryRun?: boolean; forceRefresh?: boolean; snapshotOnly?: boolean; matchLimit?: number; gameIds?: ReadonlySet<string>;
   guard?: ImportWriteGuard; client?: LiveStatsClient; now?: Date;
   log?: (message: string) => void;
   catalog?: CatalogOptions;
@@ -75,7 +75,14 @@ export async function syncLiveStatsCompetition(db: StatsArenaDatabase, input: st
     (!options.gameIds || options.gameIds.has(context.sourceGameId)) && (pending.has(context.sourceGameId) || liveStatsDue(context, saved, now, options.forceRefresh)));
   const selected = options.matchLimit === undefined ? eligible : eligible.slice(0, options.matchLimit);
   const result: LiveStatsSyncResult = { competition: reference.key, total: rows.length, selected: selected.length, skipped: rows.length - selected.length, written: 0, unchanged: 0, statuses: {}, games: [] };
+  if (options.snapshotOnly && options.forceRefresh) throw new Error("snapshot-only tidak dapat digabung dengan refresh.");
   const client = options.client ?? new LiveStatsClient(directory);
+  const get = async (url: string, ttl: number) => {
+    if (!options.snapshotOnly) return client.get(url, ttl);
+    const cached = await client.readSnapshot(url);
+    if (!cached) throw new LiveStatsFetchError("Snapshot LiveStats tervalidasi belum tersedia; HTTP dinonaktifkan.", null);
+    return cached;
+  };
   // Two games at a time; each request is bounded and retried independently.
   try {
     for (let offset = 0; offset < selected.length; offset += 2) {
@@ -92,21 +99,25 @@ export async function syncLiveStatsCompetition(db: StatsArenaDatabase, input: st
         let response: LiveStatsResponse | null = null;
         let snapshotPath: string | null = null;
         try {
-          const page = await client.get(pageUrl, options.forceRefresh ? 0 : 86_400_000);
+          const page = await get(pageUrl, options.forceRefresh ? 0 : 86_400_000);
           sourceUrl = discoverLiveStatsData(page.body, pageUrl, reference.url, context.sourceGameId);
           await client.accept(page);
-          response = await client.get(sourceUrl, options.forceRefresh || (saved && saved.portalFingerprint !== fingerprint) ? 0 : context.status === "live" ? 15_000 : 300_000);
+          response = await get(sourceUrl, options.forceRefresh || (saved && saved.portalFingerprint !== fingerprint) ? 0 : context.status === "live" ? 15_000 : 300_000);
           const parsed = parseLiveStatsJson(JSON.parse(response.body) as unknown, context);
           status = parsed.status; payload = parsed.payload; issues = parsed.issues;
           if (payload) {
             snapshotPath = await client.accept(response);
             const provenance = { sha256: response.hash, fetchedAt: response.fetchedAt, snapshotPath };
-            payload = { players: payload.players.map(row => ({ ...row, provenance })), teams: payload.teams.map(row => ({ ...row, provenance })) };
+            payload = { players: payload.players.map(row => ({ ...row, provenance })), teams: payload.teams.map(row => ({ ...row, provenance })),
+              ...(payload.rotation ? { rotation: { ...payload.rotation, provenance } } : {}) };
             const missingOptional = [...payload.players, ...payload.teams].some(row => {
               const old = "playerId" in row ? saved?.payload?.players.find(p => p.playerId === row.playerId) : saved?.payload?.teams.find(t => t.teamId === row.teamId);
               return old && Object.entries(row).some(([key, value]) => value === null && (old as unknown as Record<string, unknown>)[key] != null);
             });
             if (missingOptional) { status = "partial"; issues.push({ code: "LIVESTATS_OPTIONAL_FIELDS_RETAINED", field: "payload", message: "Field opsional hilang; baris valid sebelumnya beserta provenance dipertahankan." }); }
+            if (rotationEvidenceIsReduced(saved?.payload?.rotation, payload.rotation)) {
+              status = "partial"; issues.push({ code: "LIVESTATS_ROTATION_RETAINED", field: "rotation", message: "Event atau identitas rotasi hilang atau berkurang; bukti sebelumnya beserta provenance dipertahankan." });
+            }
             payload = mergeSupplement(saved?.payload ?? null, payload);
           } else if (issues[0]) issues[0].evidence = { sha256: response.hash, fetchedAt: response.fetchedAt, snapshotPath: response.snapshotPath };
         } catch (error) {
@@ -157,7 +168,7 @@ export async function syncLiveStatsCompetition(db: StatsArenaDatabase, input: st
             await client.compact(outcome.pageUrl);
             const kept = outcome.payload ?? outcome.saved?.payload;
             await client.compact(outcome.sourceUrl, [outcome.payload ? outcome.response?.hash : outcome.saved?.sourceHash,
-              ...(kept?.players ?? []).map(row => row.provenance?.sha256), ...(kept?.teams ?? []).map(row => row.provenance?.sha256)].filter((hash): hash is string => Boolean(hash)));
+              kept?.rotation?.provenance?.sha256, ...(kept?.players ?? []).map(row => row.provenance?.sha256), ...(kept?.teams ?? []).map(row => row.provenance?.sha256)].filter((hash): hash is string => Boolean(hash)));
           } catch { options.log?.(`${reference.key}/${outcome.context.sourceGameId}: pembersihan cache LiveStats ditunda.`); }
         }
         if (outcome.changed) { if (!options.dryRun) result.written++; } else result.unchanged++;

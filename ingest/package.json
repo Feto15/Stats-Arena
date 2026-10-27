@@ -4,6 +4,7 @@
   "type": "module",
   "engines": { "node": ">=22.19.0" },
   "scripts": {
+    "reports:export": "node --import tsx src/operations/export-reports.ts",
     "cli": "node --import tsx src/cli.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --import tsx --test test/*.test.ts",

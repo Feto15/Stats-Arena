@@ -1,5 +1,9 @@
 # Langkah Implementasi StatsArena
 
+Pembaruan demo 24 Oktober 2026: ON/OFF Net Rating estimasi dari total event interval memakai evaluator analitik bersama; shot chart satu kanvas/laga dengan pilihan pertandingan. Data tetap snapshot lokal dua laga, tanpa RAPM, perubahan schema, atau impor Neon. Metode dan batas: [REPORTING_DEMO.md](./docs/REPORTING_DEMO.md).
+
+Tambahan demo 23 Oktober 2026: perkembangan pemain dan rotasi/lineup/on-off dua laga Bima Perkasa tersedia dari snapshot lokal. Checklist pengembangan lineup produksi tetap terpisah; tidak ada perubahan parser/importer/schema Neon. Cakupan, guard, dan sumber: [REPORTING_DEMO.md](./docs/REPORTING_DEMO.md).
+
 ## Tambahan analitik — 22 Oktober 2026
 
 - [x] Modul rumus TypeScript bersama dengan evaluator angka dan SQL, versi serta definisi eksplisit.
@@ -218,3 +222,24 @@ Kerjakan parser sebagai fungsi murni `HTML → record`, menggunakan Cheerio. Jan
 - [ ] Daftarkan dan impor kompetisi IBL ke Neon bila diminta; pekerjaan ini membatasi impor IBL ke PGlite untuk verifikasi.
 
 Verifikasi dukungan IBL: suite workspace 97 test lulus, ditambah regresi audit namespace baru dan penguatan redirect terarah; lint, typecheck, dan build lulus. Dry-run IBF `49607` menemukan 35 fixture, 27 tim, 322 pemain, dan 27 baris klasemen; satu sampel detail lengkap tanpa fetch/parse/partial gagal. Dashboard browser memeriksa dua kompetisi IBF dan empty state IBL tanpa mencampurkan scope.
+
+### Laporan klub lokal 2026 — 26 Oktober 2026
+
+Tambahan autentikasi setelah verifikasi snapshot: Better Auth/Drizzle, tujuh tabel akun/akses Neon, bootstrap admin, login/logout, undangan transaksional, pengaturan/pencabutan akses, dan pemeriksaan klub/role di server selesai. Migrasi `0009_faithful_hellion` diterapkan tanpa mengubah isi 20 tabel domain. 172 test (114 ingest/58 dashboard), lint/typecheck workspace, build dashboard, 23 pemeriksaan HTTP, serta browser login/aktivasi desktop/ponsel lulus. Undangan admin pertama diterima setelah pemilik menentukan password dan memberikan konfirmasi; login admin, akses 10 klub, serta Kelola akses sudah diperiksa di browser. Pengiriman email/reset password email belum dikonfigurasi; tidak ada deployment baru. Panduan: [REPORTING_AUTH.md](./docs/REPORTING_AUTH.md).
+
+- [x] Indeks `/reports` dan route `/reports/[club]` mencakup 10 peserta `IBL:50231`, dari paket lokal tujuh laga selesai/20 fixture. Slug dan daftar klub berasal dari sumber. Demo 2025 tetap terpisah.
+- [x] Generalisasi mesin laporan dengan validasi scope; orientasi home/away, GmSc setelah TS%, satu shot chart per laga, null/nol, dan perkembangan tanpa pembanding dipertahankan.
+- [x] Exporter offline membaca katalog/analisis/audit/cache, memeriksa hash/identitas, menggunakan adapter LiveStats bersama, dan mempertahankan provenance. Ekspor ulang sumber identik menghasilkan hash paket yang sama. Tidak melakukan fetch, migrasi, atau penulisan Neon.
+- [x] Flag `STATSARENA_REPORTS_ONLY=1` mengalihkan root ke report dan menolak URL dashboard/API/demo lama di server. Default tetap dashboard lengkap.
+- [x] 48 test dashboard, lint dashboard/exporter, typecheck dashboard/ingest, build dashboard dan 23 pemeriksaan HTTP lulus. Browser 1440/390 px memeriksa katalog, report dua/satu laga, GmSc, kuarter, shot chart, perkembangan, rotasi tervalidasi/partial, perpindahan klub dan keyboard. Tidak ada halaman meluber atau warning/error browser; viewport dipulihkan.
+
+Seluruh 14 shot chart klub–laga cocok dengan box score; tujuh dataset rotasi dan enam dataset rating tervalidasi. Kegagalan validasi lainnya tetap partial; angka tidak dipaksakan agar tampil. Belum ada deployment hosting, pemeriksaan ekspor PDF, atau verifikasi Neon. Panduan: [REPORTING_LOCAL.md](./docs/REPORTING_LOCAL.md).
+
+### Report dari Neon — 26 Oktober 2026
+
+- [x] Query server-only katalog/klub dengan namespace, transaksi read-only konsisten, pemeriksaan grant sebelum query rinci, dan sumber FK/hash yang benar.
+- [x] Box score/pemain/kuarter/shot chart dari Neon tanpa fallback lokal; daftar klub undangan mengikuti keanggotaan Neon.
+- [x] Bukti rotasi pada JSONB pelengkap LiveStats 1.1.0, preservation revisi sumber, cache-only dry-run lalu pengisian 10 laga; pengulangan nol penulisan dan fingerprint 16 tabel tetap.
+- [x] Suite ingest/dashboard, regresi query serta LiveStats, lint/typecheck workspace, build production, empat pemeriksaan akses anonim, dan browser admin selesai; lihat catatan verifikasi serta batas di REPORTING_NEON.md.
+
+Lihat [REPORTING_NEON.md](./docs/REPORTING_NEON.md).

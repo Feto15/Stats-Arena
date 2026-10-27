@@ -2,7 +2,7 @@ import { competitionReference, sourceNamespace } from "@statsarena/db/source";
 import { load } from "cheerio";
 
 export const LIVESTATS_HOST = "fibalivestats.dcd.shared.geniussports.com";
-export const LIVESTATS_VERSION = "statsarena-livestats/1.0.1";
+export const LIVESTATS_VERSION = "statsarena-livestats/1.1.0";
 
 export function validateLiveStatsUrl(input: string): URL {
   const url = new URL(input);
