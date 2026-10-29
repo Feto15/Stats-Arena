@@ -15,9 +15,13 @@
     "start": "next start"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.7.12",
+    "@better-auth/cimd": "1.7.14",
+    "@better-auth/drizzle-adapter": "1.7.14",
+    "@better-auth/mcp": "1.7.14",
+    "@better-auth/oauth-provider": "1.7.14",
+    "@modelcontextprotocol/server": "2.0.0",
     "@statsarena/db": "workspace:*",
-    "better-auth": "^1.7.12",
+    "better-auth": "1.7.14",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.3",
@@ -33,6 +37,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.14",
+    "@modelcontextprotocol/client": "2.0.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.19.0",
     "@types/react": "^19.0.0",

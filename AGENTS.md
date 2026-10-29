@@ -116,6 +116,8 @@ Gunakan pooled `DATABASE_URL` untuk aplikasi dan impor rutin, serta `DIRECT_DATA
 
 CLI dan konfigurasi migrasi memuat `.env` dari root StatsArena meskipun dijalankan dengan `pnpm --dir`. Nilai environment yang sudah disediakan shell/hosting tetap didahulukan. `.env` tidak wajib untuk dry-run, test, atau pembuatan migrasi.
 
+Pemuat environment bersama harus memakai path filesystem saat runtime. Jangan memakai `new URL("../../../.env", import.meta.url)`: Webpack akan memperlakukannya sebagai aset, sehingga build hosting tanpa `.env` gagal dan file lokal dapat ikut tersalin ke output. Vercel memakai Environment Variables; file `.env` tetap opsional dan diabaikan Git. Pertahankan pengujian path root/eksplisit, file tidak tersedia, dan prioritas nilai hosting.
+
 ## Code style guidelines
 
 Deployment runner menggunakan `compose.runner.yaml` di Coolify/VPS; dashboard tetap di Vercel. `runner service` memakai incremental rutin dan standard harian, memajukan `.runner-service.json` hanya setelah seluruh kompetisi aktif sukses; partial/failure/dry-run/stop tidak memajukan penanda full. Volume snapshot/audit harus permanen; lock dan lease tetap berlaku. Healthcheck menunjukkan liveness, bukan keberhasilan impor. CI memeriksa kode/image; jangan menyatakan deployment VPS atau build Docker berhasil tanpa verifikasi nyata. Lihat [docs/RUNNER_DEPLOYMENT.md](./docs/RUNNER_DEPLOYMENT.md).
@@ -176,6 +178,10 @@ Patokan snapshot 6 Oktober 2026: 27 tim, 322 pemain, 32 pertandingan unik, sembi
 Pada fondasi Tahap 3, jalankan lint, typecheck, dan build, lalu periksa keenam route, filter URL, tabel/empty state, desktop/mobile, navigasi keyboard, serta log browser/server tanpa mengharuskan Neon. Pastikan loading skeleton dan error boundary tersedia; simulasi kegagalan data menjadi verifikasi Tahap 4. Setelah query Tahap 4 dihubungkan, periksa dua kompetisi, klasemen grup, tautan sumber, dan data review menggunakan Neon StatsArena.
 
 ## Security considerations
+
+Kualitas data MCP khusus admin: sembunyikan `get_data_quality` dari daftar tool staf dan tetap periksa role di pembaca kualitas server. Respons detail laga/chart staf tidak memuat `datasets`, `observedQuality`, kode isu, atau metadata retry. Pertahankan informasi ketersediaan/null/cakupan hitung/provenance statistik. Perubahan role wajib berlaku memakai token yang sama.
+
+MCP baca saja tersedia pada `dashboard/app/api/mcp`, memakai Better Auth/OAuth PKCE + CIMD dan migrasi `0010_melodic_mulholland_black`. Pertahankan pemeriksaan JWT issuer/audience/signature/expiry/scope serta pembacaan ulang user/sesi/client/consent/grant Neon setiap request/tool. Identitas/role/grant tidak boleh berasal dari argumen tool. Scope `statsarena:read` tidak memberi hak klub baru; gunakan policy kompetisi+klub bersama. Pencabutan grant/koneksi wajib berlaku pada token yang sama. Jangan menambah tool SQL bebas, ingest/migrasi/penghapusan, atau mengembalikan raw error/path audit/token. Query statistik read-only, pagination/output/body/rate limit tetap dibatasi. CIMD hanya origin HTTPS ChatGPT melalui transport DNS/IP-pinned; DCR terbuka tetap mati. Uji OAuth dan isolasi dengan `dashboard/test/mcp-auth.test.ts` serta `mcp-queries.test.ts`, termasuk regresi report. Lihat [docs/MCP.md](./docs/MCP.md).
 
 - Jangan commit atau menampilkan `.env`, password, token, atau connection string. `.env.example` hanya berisi placeholder; redact kredensial pada log dan error.
 - Jangan membaca/menyalin kredensial IBL Analytic untuk mengisi StatsArena. Pastikan migrasi dan importer terhubung ke target StatsArena yang dimaksud.

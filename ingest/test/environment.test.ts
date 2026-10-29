@@ -6,21 +6,22 @@ import { join } from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 
-test("project environment resolves the root file from both package directories and preserves shell values", async () => {
+test("project environment supports root and explicit runtime files, missing files and shell precedence", async () => {
   const root = await mkdtemp(join(tmpdir(), "statsarena-env-"));
   try {
     const moduleDir = join(root, "packages/db/src");
     await mkdir(moduleDir, { recursive: true });
     await mkdir(join(root, "ingest"));
+    await mkdir(join(root, "dashboard"));
     const modulePath = join(moduleDir, "environment.ts");
     await writeFile(modulePath, await readFile(new URL("../../packages/db/src/environment.ts", import.meta.url)));
     await writeFile(join(root, "packages/db/package.json"), '{"type":"module"}\n');
     await writeFile(join(root, ".env"), "STATSARENA_TEST_ROOT=root\nSTATSARENA_TEST_EXISTING=file\n");
     await writeFile(join(root, "ingest/.env"), "STATSARENA_TEST_ROOT=wrong\n");
     const script = `import { loadProjectEnv } from ${JSON.stringify(pathToFileURL(modulePath).href)};
-      loadProjectEnv();
+      loadProjectEnv(process.argv[1]);
       console.log(JSON.stringify([process.env.STATSARENA_TEST_ROOT, process.env.STATSARENA_TEST_EXISTING]));`;
-    for (const cwd of [join(root, "ingest"), join(root, "packages/db")]) {
+    for (const cwd of [join(root, "ingest"), join(root, "packages/db"), join(root, "dashboard")]) {
       const result = execFileSync(process.execPath, ["--import", import.meta.resolve("tsx"), "--input-type=module", "-e", script], {
         cwd, encoding: "utf8", env: { STATSARENA_TEST_EXISTING: "shell" }
       });
@@ -31,6 +32,12 @@ test("project environment resolves the root file from both package directories a
       cwd: join(root, "ingest"), encoding: "utf8", env: { STATSARENA_TEST_EXISTING: "shell" }
     });
     assert.deepEqual(JSON.parse(result), [null, "shell"]);
+    const explicitPath = join(root, "dashboard/runtime.env");
+    await writeFile(explicitPath, "STATSARENA_TEST_ROOT=explicit\nSTATSARENA_TEST_EXISTING=file\n");
+    const explicit = execFileSync(process.execPath, ["--import", import.meta.resolve("tsx"), "--input-type=module", "-e", script, explicitPath], {
+      cwd: join(root, "dashboard"), encoding: "utf8", env: { STATSARENA_TEST_EXISTING: "hosting" }
+    });
+    assert.deepEqual(JSON.parse(explicit), ["explicit", "hosting"]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

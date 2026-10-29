@@ -321,3 +321,11 @@ Fingerprint seluruh isi **13 tabel domain selain tabel metrik** identik sebelum/
 Pemeriksaan mencakup 103 test ingest dan sembilan test dashboard. Satu assertion versi parser lama pada suite IBL ditemukan saat pengujian penuh, diperbaiki memakai konstanta versi, lalu suite IBL/backfill diulang: empat test lulus. Seluruh test lain pada pengujian penuh lulus. Lint, typecheck, build workspace dan build ingest final lulus. Test membuktikan nol portal diprioritaskan, fallback per tim/per metrik, konflik tidak mengganti kedua sumber, isolasi scope kompetisi/laga, FK snapshot, dry-run tanpa penulisan, penolakan writer aktif, rollback dan idempotensi.
 
 Browser memeriksa `49607 / 2931666`: PIP 16–24, PFT 13–22, FBP 5–11 dan 2CP 4–7 berlabel Portal; BP 3–28 berlabel LiveStats. Pada putri `49609 / 2915281`, BP nol tetap nol dan metrik portal memakai sumber Portal. Pada `IBL:42041 / 2697593`, metrik yang tidak tersedia di portal memakai LiveStats. Desktop 1440×900 dan ponsel 390×844 diperiksa; lebar dokumen tetap 390 px, tabel bergulir dalam kontainer, dan log browser bersih. Tidak ada deployment VPS/Vercel pada pekerjaan ini.
+
+## OAuth MCP — 28 Oktober 2026
+
+Target pooled/direct diperiksa cocok dengan schema StatsArena, tanpa lease writer aktif. Migrasi `0010_melodic_mulholland_black` menambahkan delapan tabel OAuth (`auth_mcp_*`): **27 → 35 tabel aplikasi**, jurnal **10 → 11 migrasi**. Perbandingan count dan hash seluruh isi **20 tabel domain** identik sebelum/sesudah. Tidak mengimpor ulang pertandingan, membuat akun test, atau mengubah grant akun Neon.
+
+Query MCP baru diuji langsung dalam transaksi read-only pada dua namespace. Cakupan klub pertama yang ditemukan: `49607 / 146211` memiliki dua fixture/dua box score valid dan 12 pemain; `IBL:50231 / 143227` memiliki empat fixture/tiga box score valid dan 14 pemain. Detail sampel masing-masing memuat 12 pemain klub sendiri dan chart yang cocok. Rumus memakai `statsarena-analytics/1.0.0`. Ini pemeriksaan query Neon, bukan bukti koneksi OAuth ChatGPT publik.
+
+OAuth, isolasi klub/namespace, dan pencabutan izin/koneksi diuji menggunakan Better Auth/SDK MCP/PGlite asli secara offline. Konfigurasi dan batas verifikasi publik ada di [MCP.md](./MCP.md).

@@ -159,3 +159,13 @@ Detail laga menampilkan status ringkasan, box score, PBP, chart, dan metrik resm
 ## Filter sumber IBL — 16 Oktober 2026
 
 Filter `?competition=IBL:42041` memilih namespace IBL; filter angka tetap IBF. Pilihan kompetisi dan query menggunakan source beserta ID, sedangkan ID tim/pemain tetap mengikuti kompetisi yang dipilih. Tautan publik IBF/IBL divalidasi dengan helper sumber bersama. Detail laga membaca metadata `stat_derivations`; penjelasan tabel menyebut perhitungan 2P dari FG−3P ketika kolom sumber tidak disediakan. Sampel IBL belum diimpor ke Neon dalam pekerjaan ini, sehingga pilihan hanya muncul setelah kompetisinya diimpor.
+
+## MCP baca saja — 28 Oktober 2026
+
+Perbaikan build Vercel, 29 Oktober 2026: pemuat `packages/db/src/environment.ts` memakai path filesystem runtime agar `.env` tidak diperlakukan Webpack sebagai aset wajib. Build production dari salinan workspace tanpa file `.env` berhasil dan tidak menghasilkan aset `.env`; test pemuat environment, 86 test dashboard, lint serta typecheck workspace lulus. Nilai Vercel diisi melalui Environment Variables. Cache/salinan aset `.env` hasil build lokal lama dibersihkan; file `.env` asli dan data Neon tidak diubah. Ini verifikasi build lokal dalam kondisi tanpa `.env`, bukan bukti deployment Vercel berhasil.
+
+Dashboard menyediakan `/api/mcp`, discovery OAuth, halaman login/persetujuan, dan `/mcp/connections`. Gunakan akun serta grant kompetisi/klub StatsArena; admin mengaturnya melalui `/admin/access` dengan pilihan kompetisi dari Neon. Header report menyediakan **Koneksi aplikasi** untuk pencabutan koneksi akun sendiri.
+
+Endpoint MCP membaca Neon server-side dalam transaksi read-only dan memakai rumus analitik bersama. Token, sesi, consent, serta grant diverifikasi pada setiap pemanggilan. Mode khusus report mengizinkan entry MCP secara terbatas; API lain tetap mengikuti aturan semula. Migrasi `0010_melodic_mulholland_black` menambah delapan tabel OAuth tanpa mengubah isi 20 tabel domain. Tidak ada widget statistik interaktif MCP pada tahap ini. Konfigurasi Vercel, tool, batas akses dan verifikasi: [MCP.md](./MCP.md).
+
+Pemeriksaan kualitas data MCP hanya untuk admin. Staf mendapat sembilan tool statistik; respons detail/chart tidak menyertakan kode isu, status dataset, kategori kegagalan, atau jadwal retry. Penanda ketersediaan dan cakupan perhitungan tetap ada.

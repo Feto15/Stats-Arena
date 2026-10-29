@@ -1,6 +1,6 @@
 # Login dan akses report klub
 
-StatsArena memakai **Better Auth 1.7.12**, adapter Drizzle PostgreSQL, dan Neon pada schema `statsarena`. Data pertandingan report utama serta akun, hash password, sesi, pembatasan percobaan login, undangan, dan penugasan akses klub dibaca dari Neon. Daftar klub/keanggotaan untuk undangan juga mengikuti Neon; lihat [REPORTING_NEON.md](./REPORTING_NEON.md).
+StatsArena memakai **Better Auth 1.7.14**, adapter Drizzle PostgreSQL, dan Neon pada schema `statsarena`. Data pertandingan report utama serta akun, hash password, sesi, pembatasan percobaan login, undangan, dan penugasan akses klub dibaca dari Neon. Daftar klub/keanggotaan untuk undangan juga mengikuti Neon; lihat [REPORTING_NEON.md](./REPORTING_NEON.md).
 
 ## Hak akses
 
@@ -9,7 +9,7 @@ StatsArena memakai **Better Auth 1.7.12**, adapter Drizzle PostgreSQL, dan Neon 
 - Indeks dan pilihan klub hanya memuat klub yang ditugaskan. URL klub asing menghasilkan 404 bagi staf. Staf yang mencoba membuka dashboard, Kelola akses, atau demo admin dialihkan ke `/reports`.
 - Pengunjung tanpa sesi diarahkan ke `/login`. Pendaftaran umum Better Auth dimatikan; mengirim `isAdmin` dari browser tidak bisa memberi hak admin. Halaman, Server Actions, dan pembaca data dashboard memeriksa otorisasi di server.
 
-Implementasi memakai sesi Better Auth dan tabel penugasan/undangan aplikasi yang khusus report. Tidak mengaktifkan API Organization/Admin plugin yang tidak diperlukan, dan tidak mengaitkan akun staf dengan entitas pemain/roster olahraga.
+Implementasi memakai sesi Better Auth dan tabel penugasan/undangan aplikasi. Grant yang sama berlaku untuk report dan [MCP baca saja](./MCP.md); OAuth memiliki token/consent terpisah dan tidak memperluas grant. Tidak mengaktifkan API Organization/Admin plugin yang tidak diperlukan, dan tidak mengaitkan akun staf dengan entitas pemain/roster olahraga.
 
 ## Konfigurasi
 
@@ -24,6 +24,8 @@ STATSARENA_REPORTS_ONLY=1
 ```
 
 Produksi memakai origin HTTPS deployment pada `BETTER_AUTH_URL`, tanpa path/query, dan secret unik yang disimpan di environment hosting. Cookie menggunakan HttpOnly, SameSite=Lax, serta Secure pada HTTPS. Origin request divalidasi Better Auth; login dibatasi lima percobaan per 60 detik per key IP/path melalui storage database. Hosting harus mempertahankan header IP dari proxy tepercaya.
+
+Vercel menerima nilai melalui Environment Variables; tidak memerlukan file `.env` dalam repository. Pemuat `.env` adalah fallback filesystem lokal saat runtime, dengan prioritas nilai hosting/shell. Perbaikan 29 Oktober 2026 mengganti pola URL aset Webpack dengan `node:path`, agar `.env` tidak menjadi dependensi build atau tersalin sebagai aset server. Tidak perlu mengunggah atau melakukan commit `.env` untuk memperbaiki error `Can't resolve '../../../.env'`.
 
 `STATSARENA_REPORTS_ONLY=1` membatasi route untuk non-admin: login, aktivasi undangan, report, dan API autentikasi yang diperlukan tetap tersedia. Admin terverifikasi boleh membuka seluruh aplikasi meskipun flag ini aktif. Proxy memeriksa sesi Better Auth di server sebelum memberi pengecualian admin; cookie/role dari input browser tidak dipercaya. Pemeriksaan halaman/data/aksi tetap berlaku. Tidak ada flag untuk melewati otorisasi. Secret yang tidak tersedia tidak diganti nilai dummy; kegagalan layanan tidak membuka report.
 
@@ -48,7 +50,7 @@ Pada pemasangan 26 Oktober 2026, undangan pertama dibuat untuk email yang ditent
 ## Mengundang staf
 
 1. Admin masuk dan membuka **Kelola akses**.
-2. Masukkan email penerima dan pilih satu atau beberapa klub.
+2. Pilih kompetisi dari Neon, masukkan email penerima, lalu pilih satu atau beberapa klub pada kompetisi tersebut.
 3. Buat dan salin tautan undangan, lalu bagikan hanya kepada orang yang dituju.
 4. Penerima menentukan nama/password, atau masuk dahulu jika sudah mempunyai akun dengan email tersebut, kemudian menerima akses.
 

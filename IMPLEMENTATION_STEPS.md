@@ -243,3 +243,16 @@ Seluruh 14 shot chart klub–laga cocok dengan box score; tujuh dataset rotasi d
 - [x] Suite ingest/dashboard, regresi query serta LiveStats, lint/typecheck workspace, build production, empat pemeriksaan akses anonim, dan browser admin selesai; lihat catatan verifikasi serta batas di REPORTING_NEON.md.
 
 Lihat [REPORTING_NEON.md](./docs/REPORTING_NEON.md).
+
+### MCP dan izin akun — 28 Oktober 2026
+
+- [x] Sepuluh tool baca Neon, identitas dari token, scope kompetisi/klub, pemisahan IBF/IBL, provenance, null, dan perhitungan analitik bersama.
+- [x] Pemeriksaan kualitas data khusus admin: staf menerima sembilan tool tanpa diagnostik pada detail/chart; server menolak pembacaan kualitas oleh staf dan membaca ulang perubahan role pada token yang sama.
+- [x] OAuth authorization code/PKCE, resource/issuer discovery, CIMD khusus ChatGPT, login/consent, pemutusan koneksi, dan pembacaan ulang grant/sesi/consent.
+- [x] Admin memilih kompetisi/klub dari Neon untuk undangan; mode report-only tetap mengizinkan entry MCP terbatas.
+- [x] Migrasi `0010_melodic_mulholland_black` pada target Neon terverifikasi: delapan tabel OAuth, 35 tabel aplikasi, 11 migrasi, fingerprint seluruh 20 tabel domain tetap sama.
+- [x] Seluruh 202 test (116 ingest/86 dashboard), lint, typecheck, dan build workspace lulus, termasuk PKCE/replay, SDK modern/legacy, token/redirect palsu, isolasi klub/namespace, pencabutan izin/koneksi dan regresi report.
+- [x] 15 pemeriksaan HTTP pada build production lokal dan browser admin untuk koneksi/pilihan kompetisi-klub; tanpa membuat undangan/grant/koneksi nyata.
+- [ ] Deploy Vercel pada domain HTTPS tetap dan hubungkan akun melalui ChatGPT untuk uji OAuth publik. Tidak menganggap SDK/PGlite lokal sebagai verifikasi koneksi ChatGPT nyata.
+
+Panduan konfigurasi, izin dan batas cakupan: [MCP.md](./docs/MCP.md).
