@@ -25,7 +25,7 @@ Untuk mencabut koneksi, buka **Koneksi aplikasi** pada header report atau `/mcp/
 
 Seluruh tool membutuhkan token dan memakai anotasi `readOnlyHint=true`, `destructiveHint=false`, `idempotentHint=true`, `openWorldHint=false`.
 
-Admin memperoleh sepuluh tool; staf sembilan. `get_data_quality` hanya terdaftar untuk admin dan pembaca datanya juga memeriksa role di server. Kode isu, kategori kegagalan, jadwal retry, dan status dataset tidak disertakan pada detail laga/chart staf. Ketersediaan statistik, cakupan laga yang dihitung, provenance, dan nilai `null` tetap disampaikan agar angka dapat dibaca dengan benar. Perubahan role langsung diperiksa memakai token yang sama.
+Admin memperoleh sepuluh tool; staf sembilan. `get_data_quality` hanya terdaftar untuk admin dan pembaca datanya juga memeriksa role di server. Kode isu, kategori kegagalan, jadwal retry, dan status dataset tidak disertakan pada detail laga/chart staf. Ketersediaan statistik, cakupan laga yang dihitung, dan nilai `null` tetap disampaikan agar angka dapat dibaca dengan benar. Provenance diperiksa di server dan tetap tersimpan di Neon. Perubahan role langsung diperiksa memakai token yang sama.
 
 | Tool | Hasil dan cakupan |
 | --- | --- |
@@ -35,10 +35,10 @@ Admin memperoleh sepuluh tool; staf sembilan. `get_data_quality` hanya terdaftar
 | `list_games` | Jadwal/hasil laga yang melibatkan klub yang diizinkan |
 | `get_team_stats` | Total, per laga, total lawan pada laga yang sama, dan metrik bersama |
 | `get_player_stats` | Pemain klub sendiri, pencarian nama/ID, dan metrik bersama |
-| `get_game_detail` | Box score pemain klub sendiri, total lawan, dan provenance; diagnostik dataset khusus admin |
+| `get_game_detail` | Box score pemain klub sendiri dan total lawan; diagnostik dataset khusus admin |
 | `get_shot_chart` | Marker valid klub/laga, opsional pemain sendiri |
 | `get_data_quality` | Khusus admin: status dataset, kategori, jadwal retry, dan kode isu terbatas |
-| `get_metric_definitions` | Rumus, satuan, versi, serta penanda estimasi |
+| `get_metric_definitions` | Rumus, satuan, asal perhitungan StatsArena, serta penanda estimasi |
 
 Alur: `get_profile` → `list_competitions` → `list_teams` → tool statistik dengan ID yang ditemukan. Argumen umum:
 
@@ -48,7 +48,19 @@ Alur: `get_profile` → `list_competitions` → `list_teams` → tool statistik 
 
 Angka kompetisi berarti IBF; IBL eksplisit, misalnya `IBL:50231`. `game` dan `player` memakai ID sumber dalam cakupan kompetisi tersebut. Daftar memakai `limit` 1–50 (default 25), `offset` 0–5000. Field tambahan seperti `userId`/`isAdmin` ditolak.
 
-Statistik berasal dari box score portal selesai dengan provenance dan total valid. Respons menyertakan `gameIds`, jumlah laga, alasan pengecualian, versi analitik, serta sumber. Persentase agregat dihitung dari total input menggunakan `@statsarena/db/analytics`, sama dengan dashboard/ekspor. Nilai tidak tersedia tetap `null`; tidak ada kolom metrik Neon baru.
+Statistik berasal dari box score portal selesai dengan provenance dan total valid. Respons menyertakan `gameIds`, jumlah laga, dan alasan pengecualian. Persentase agregat dihitung dari total input menggunakan `@statsarena/db/analytics`, sama dengan dashboard/ekspor. Nilai tidak tersedia tetap `null`; tidak ada kolom metrik Neon baru.
+
+### Respons ringkas 1.1.0 — 29 Oktober 2026
+
+Server MCP mengirim identitas domain, nama, statistik resmi/hasil hitung, jadwal/hasil, cakupan laga, pagination, dan ketersediaan data. Semua respons tool statistik, termasuk daftar kompetisi/tim/laga dan setiap marker shot, tidak memuat URL sumber, provenance, hash, waktu fetch, versi parser/analitik, atau nama penyimpanan/provider. Pembatasan ini berlaku untuk admin dan staf serta kedua bentuk hasil MCP: teks JSON dan `structuredContent`. Tidak menaruh metadata tersebut pada `_meta` atau resource tersembunyi lain.
+
+OAuth/discovery tetap memuat alamat layanan yang diperlukan untuk koneksi. Profil akun tetap memuat identitas serta grant. Admin tetap memperoleh diagnostik kualitas, waktu pemeriksaan/retry, dan kode isu terbatas; staf tidak. Jadwal pertandingan, ID/cakupan laga, koordinat kanvas, nilai nol/null, dan definisi rumus/estimasi bukan metadata fetch dan dipertahankan.
+
+Query tetap memeriksa URL, hash, versi parser, identitas, dan konsistensi statistik sebelum menampilkan angka. Data sumber/audit di Neon, ingest, ekspor analisis dan dashboard tidak dihapus atau diubah. Admin dapat menelusuri sumber melalui dashboard. Tidak tersedia argumen untuk meminta URL sumber kembali dari tool MCP.
+
+Instruksi server meminta jawaban statistik langsung dan melarang pembuatan tautan sumber/angka pengganti dari luar. Susunan jawaban akhir tetap ditentukan klien ChatGPT; server menjamin pembatasan payload yang dikirim, bukan semua teks yang mungkin ditambahkan model. Setelah deployment baru, refresh koneksi/tool plugin agar metadata server terbaru terbaca dan gunakan percakapan baru untuk menghindari tautan dari hasil tool lama.
+
+Verifikasi respons `1.1.0`: 88 test dashboard, lint, typecheck, dan build production lulus. Regresi memeriksa semua query admin/staf, marker chart valid/tidak tersedia, null/nol/cakupan, hasil teks dan terstruktur pada HTTP MCP, serta metadata sumber yang tetap utuh di PGlite. Tidak ada migrasi, fetch sumber, atau penulisan Neon dalam perubahan ini; koneksi ChatGPT/deployment publik belum diuji ulang.
 
 Lawan disajikan sebagai konteks total tim pada laga klub tersebut. Pemain/shot lawan memerlukan grant klub lawan sendiri. Chart memerlukan kesesuaian FGA/FGM, pemetaan pemain, satu observasi/versi parser, koordinat valid, dan URL sumber sesuai namespace/kompetisi/laga. Koordinat mengikuti kanvas sumber tanpa rotasi. Chart ditahan mengembalikan `available=false, items=null`; admin dapat melihat diagnostik fetch terbaru secara terpisah dari chart valid tersimpan.
 

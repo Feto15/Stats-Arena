@@ -247,6 +247,8 @@ Lihat [REPORTING_NEON.md](./docs/REPORTING_NEON.md).
 ### MCP dan izin akun — 28 Oktober 2026
 
 - [x] Sepuluh tool baca Neon, identitas dari token, scope kompetisi/klub, pemisahan IBF/IBL, provenance, null, dan perhitungan analitik bersama.
+- [x] MCP `1.1.0`: respons nama/statistik/cakupan/ketersediaan tanpa URL/hash/waktu fetch/provenance/versi internal; sumber tetap divalidasi dan tersimpan untuk pemeriksaan admin melalui dashboard.
+- [x] Verifikasi `1.1.0`: 88 test dashboard, lint/typecheck, dan build production; hasil HTTP teks/terstruktur serta pelestarian metadata sumber diuji memakai PGlite tanpa perubahan Neon.
 - [x] Pemeriksaan kualitas data khusus admin: staf menerima sembilan tool tanpa diagnostik pada detail/chart; server menolak pembacaan kualitas oleh staf dan membaca ulang perubahan role pada token yang sama.
 - [x] OAuth authorization code/PKCE, resource/issuer discovery, CIMD khusus ChatGPT, login/consent, pemutusan koneksi, dan pembacaan ulang grant/sesi/consent.
 - [x] Admin memilih kompetisi/klub dari Neon untuk undangan; mode report-only tetap mengizinkan entry MCP terbatas.

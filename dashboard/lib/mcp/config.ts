@@ -1,6 +1,6 @@
 export const MCP_PATH = "/api/mcp";
 export const MCP_SCOPE = "statsarena:read";
-export const MCP_VERSION = "1.0.0";
+export const MCP_VERSION = "1.1.0";
 export const MCP_SCOPES = [MCP_SCOPE, "offline_access"];
 export const mcpResource = (baseURL: string) => new URL(MCP_PATH, baseURL).href;
 

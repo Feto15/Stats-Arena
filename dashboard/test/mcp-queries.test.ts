@@ -19,6 +19,18 @@ const stats = (made = 1, attempts = 2): Stats => ({ ...Object.fromEntries(BASE_S
   threePointsMade: 0, threePointAttempts: 0, freeThrowsMade: 0, freeThrowAttempts: 0, rebounds: 1, offensiveRebounds: 0, defensiveRebounds: 1, assists: 1, steals: 0, blocks: 0, turnovers: 0, personalFouls: 0 });
 const viewer: ReportViewer = { id: "coach", name: "Coach", email: "coach@example.test", isAdmin: false, grants: [{ competitionKey: "901", clubSourceId: "11" }] };
 const paged = { limit: 25, offset: 0 }, scope = { competition: "901", club: "11" };
+function assertNoSourceMetadata(value: unknown) {
+  const excluded = new Set(["source", "sourceUrl", "url", "provenance", "hash", "sha256", "fetchedAt", "sourceFetchedAt", "parserVersion", "analyticsVersion", "dataSource"]);
+  function visit(item: unknown) {
+    if (Array.isArray(item)) { item.forEach(visit); return; }
+    if (item && typeof item === "object") for (const [key, child] of Object.entries(item)) {
+      assert.equal(excluded.has(key), false, `Internal metadata field ${key} escaped into MCP data`);
+      visit(child);
+    }
+    if (typeof item === "string") assert.doesNotMatch(item, /https?:\/\//);
+  }
+  visit(value);
+}
 
 test("MCP queries isolate clubs and namespaces, preserve weighted analytics and expose only scoped, validated detail", async t => {
   const client = new PGlite(), db = drizzle(client, { schema });
@@ -71,7 +83,7 @@ test("MCP queries isolate clubs and namespaces, preserve weighted analytics and 
       assert.equal(report.totals.points,30); assert.equal(report.totals.fieldGoalsAttempted,40); assert.equal(report.advancedStats.trueShootingPercentage,37.5);
       assert.deepEqual(report.scope.gameIds,["1001","1002"]); assert.equal(report.scope.excludedGames[0]!.reason,"scheduled");
       const result = await playerStatistics(db,viewer,{...scope,...paged,player:"1101"}); assert.equal(result.items[0]!.totals.points,6); assert.equal(result.items[0]!.advancedStats.trueShootingPercentage,37.5);
-      assert.equal(result.items[0]!.gamesPlayed,2); assert.equal(result.provenance.length,2);
+      assert.equal(result.items[0]!.gamesPlayed,2); assertNoSourceMetadata(result); assertNoSourceMetadata(report); assert.equal(report.totals.freeThrowsMade,0);
       await assert.rejects(() => playerStatistics(db,viewer,{...scope,...paged,player:"2201"}),/belum tersedia/);
       assert.equal((await listClubGames(db,viewer,{...scope,...paged})).items.length,3);
       await assert.rejects(() => gameStatistics(db,viewer,{...scope,game:"1004"}),/belum tersedia/);
@@ -84,6 +96,7 @@ test("MCP queries isolate clubs and namespaces, preserve weighted analytics and 
       for(let n=0;n<10;n++)await db.insert(shots).values({gameId:game,teamId:teamIds.get("11")!,playerId:playerIds.get(`110${n%5+1}`)!,sourceSequence:n,periodNumber:1,shotType:"2pt",result:n<5?"made":"missed",xRaw:"20%",yRaw:"30%",xPercent:20,yPercent:30,rawTitle:"source",sourceUrl:fetch!.requestUrl,sourceFetchId:fetch!.id,parserVersion:"test/parser"});
       await db.update(games).set({detailQuality:buildDetailQuality({shotChart:"fetch_failed"},[{code:"FETCH_FAILED",severity:"error",message:"private-transport-diagnostic",sourceUrl:fetch!.requestUrl,fieldPath:null,expected:null,actual:null}])}).where(eq(games.id,game));
       const chart=await gameShotChart(db,viewer,{...scope,...paged,game:"1001"}); assert.equal(chart.available,true); assert.equal(chart.items?.length,10);
+      assertNoSourceMetadata(chart);
       const filtered=await gameShotChart(db,viewer,{...scope,...paged,game:"1001",player:"1101"});assert.equal(filtered.items?.length,2);
       await assert.rejects(()=>gameShotChart(db,viewer,{...scope,...paged,game:"1001",player:"2201"}),/belum tersedia/);
       await db.update(shots).set({parserVersion:"other/parser"}).where(and(eq(shots.gameId,game),eq(shots.sourceSequence,0)));
@@ -96,9 +109,31 @@ test("MCP queries isolate clubs and namespaces, preserve weighted analytics and 
       assert.equal("datasets" in await gameStatistics(db,viewer,{...scope,game:"1001"}),false);
       assert.equal("datasets" in await gameStatistics(db,adminViewer,{...scope,game:"1001"}),true);
       const adminChart=await gameShotChart(db,adminViewer,{...scope,...paged,game:"1001"});assert.ok("observedQuality" in adminChart);assert.equal(adminChart.observedQuality?.issues[0]?.code,"FETCH_FAILED");
+      assertNoSourceMetadata(adminChart); assertNoSourceMetadata(quality);
       assert.ok(!JSON.stringify(await listClubGames(db,viewer,{...scope,...paged})).includes("FETCH_FAILED"));
       await db.delete(shots).where(and(eq(shots.gameId,game),eq(shots.sourceSequence,0)));
       const broken=await gameShotChart(db,viewer,{...scope,...paged,game:"1001"});assert.equal(broken.available,false);assert.equal(broken.items,null);
+      assertNoSourceMetadata(broken);
+    });
+    await t.test("all MCP queries omit source metadata for staff and admins while database provenance remains intact", async () => {
+      for (const actor of [viewer,{...viewer,isAdmin:true}]) {
+        const outputs=await Promise.all([
+          visibleCompetitions(db,actor,paged), visibleTeams(db,actor,"901",paged),
+          listClubGames(db,actor,{...scope,...paged}), clubStatistics(db,actor,scope),
+          playerStatistics(db,actor,{...scope,...paged}), gameStatistics(db,actor,{...scope,game:"1001"}),
+          gameStatistics(db,actor,{...scope,game:"1003"}), gameShotChart(db,actor,{...scope,...paged,game:"1001"})
+        ]);
+        outputs.forEach(assertNoSourceMetadata);
+        const empty=await clubStatistics(db,actor,{competition:"901",club:actor.isAdmin?"44":"11"});
+        assertNoSourceMetadata(empty);
+      }
+      const [storedCompetition]=await db.select().from(competitions).where(eq(competitions.id,competition!.id));
+      assert.equal(storedCompetition?.sourceUrl,root);
+      const storedFetches=await db.select().from(sourceFetches).where(eq(sourceFetches.competitionId,competition!.id));
+      assert.ok(storedFetches.every(row=>row.requestUrl.startsWith(root)&&row.sha256?.length===64&&row.fetchedAt));
+      const [storedShot]=await db.select().from(shots).where(eq(shots.gameId,gameIds.get("1001")!)).limit(1);
+      assert.equal(storedShot?.sourceUrl,`${root}/match/1001/shotchart`);assert.equal(storedShot?.parserVersion,"test/parser");
+      assert.ok(storedShot?.sourceFetchId);
     });
     await t.test("missing minutes invalidate only minute-dependent metrics; corrected scores exclude incompatible stored box scores", async () => {
       await db.update(playerGameStats).set({minutes:null,minutesRaw:null}).where(and(eq(playerGameStats.gameId,gameIds.get("1002")!),eq(playerGameStats.playerId,playerIds.get("1102")!)));

@@ -8,7 +8,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
-import { schema, authUsers, authClubAccess, authMcpClients, authMcpConsents } from "@statsarena/db";
+import { schema, authUsers, authClubAccess, authMcpClients, authMcpConsents, competitions, competitionTeams, teams } from "@statsarena/db";
 import type { StatsArenaDatabase } from "@statsarena/db";
 import { createReportAuth } from "../lib/auth/factory";
 import { createStatsArenaMcpRoute } from "../lib/mcp/handler";
@@ -146,6 +146,30 @@ test("MCP OAuth PKCE, consent, bearer transport and live permission revocation u
         assert.ok(methods.includes("server/discover"));
       } finally { await sdk.close(); }
       assert.equal((await rpc("tools/call", { name: "get_profile", arguments: { excess: "x".repeat(70_000) } })).status, 413);
+    });
+    await t.test("MCP text and structured results expose statistics without source links or internal versions", async () => {
+      const sourceUrl="https://hosted.dcd.shared.geniussports.com/IBL/en/competition/50231";
+      const [competition]=await db.insert(competitions).values({source:"genius_sports:IBL",sourceCompetitionId:"50231",name:"Permitted competition",sourceUrl}).returning();
+      const [team]=await db.insert(teams).values({source:"genius_sports:IBL",sourceTeamId:"126042",name:"Permitted club",sourceUrl:`${sourceUrl}/team/126042`}).returning();
+      await db.insert(competitionTeams).values({competitionId:competition!.id,teamId:team!.id,sourceUrl:team!.sourceUrl});
+      for (const actorIsAdmin of [false,true]) {
+        await db.update(authUsers).set({isAdmin:actorIsAdmin}).where(eq(authUsers.id,userId));
+        for (const [name,args] of [
+          ["list_competitions",{}], ["list_teams",{competition:"IBL:50231"}],
+          ["list_games",{competition:"IBL:50231",club:"126042"}],
+          ["get_team_stats",{competition:"IBL:50231",club:"126042"}],
+          ["get_player_stats",{competition:"IBL:50231",club:"126042"}], ["get_metric_definitions",{}],
+          ...(actorIsAdmin ? [["get_data_quality",{competition:"IBL:50231",club:"126042"}]] as const : [])
+        ] as const) {
+          const response=await rpcBody(await rpc("tools/call",{name,arguments:args}));
+          const result=object.parse(response["result"]);assert.notEqual(result["isError"],true);
+          const content=z.array(z.object({type:z.literal("text"),text:z.string()})).parse(result["content"]);
+          assert.deepEqual(JSON.parse(content[0]!.text),result["structuredContent"]);
+          assert.doesNotMatch(content[0]!.text,/https?:\/\/|sourceUrl|provenance|parserVersion|analyticsVersion|dataSource|sha256|fetchedAt/);
+        }
+      }
+      await db.update(authUsers).set({isAdmin:false}).where(eq(authUsers.id,userId));
+      assert.equal((await db.select().from(competitions).where(eq(competitions.id,competition!.id)))[0]?.sourceUrl,sourceUrl);
     });
     await t.test("authorization codes cannot be replayed; unsigned continuations and wildcard redirects fail", async () => {
       assert.ok((await tokenRequest({ grant_type: "authorization_code", code: authorizationCode, client_id: clientId, code_verifier: verifier, resource, redirect_uri: "https://chatgpt.com/connector_platform_oauth_redirect" })).status >= 400);
