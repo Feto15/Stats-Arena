@@ -1,5 +1,7 @@
 # Dashboard StatsArena
 
+Optimasi 29 Oktober 2026: cache query server dengan TTL 5–60 detik dan pemeriksaan akses pada setiap request, pool auth/data bersama, direktori laporan ringan, serta perpindahan tab laporan tanpa request server. Data Neon dan rumus tidak berubah. Metode, batas kesegaran dan pengukuran: [DASHBOARD_PERFORMANCE.md](./DASHBOARD_PERFORMANCE.md).
+
 ## Rumus analitik bersama — 22 Oktober 2026
 
 Persentase shooting, eFG%, TS%, AST/TO, dan EFF per laga pada daftar pemain memakai `@statsarena/db/analytics-sql`, dari definisi `statsarena-analytics/1.0.0` yang juga digunakan ekspor JSON. Query tetap menghitung dan mengurutkan sebelum pagination serta menjaga scope kompetisi/filter. Tidak ada tambahan kolom UI dalam pekerjaan ini. Metrik baru tersedia pada JSON analisis; panduan serta rumus ada di [ANALYTICS.md](./ANALYTICS.md). Neon tetap menyimpan input resmi dan provenance, tanpa migrasi untuk metrik turunan ini.

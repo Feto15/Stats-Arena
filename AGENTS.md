@@ -175,6 +175,8 @@ Patokan snapshot 6 Oktober 2026: 27 tim, 322 pemain, 32 pertandingan unik, sembi
 
 ### Dashboard
 
+Pembacaan dashboard/report memakai cache memori per instance yang dibatasi 128 entri/16 MiB nilai terserialisasi, TTL 5–60 detik. Selalu periksa sesi/role/grant sebelum hit atau join pembacaan aktif; jangan cache keputusan izin lintas request. Kunci harus mencakup namespace/kompetisi, klub/entitas, filter dan pagination. Salin hasil sebelum penyaringan/mutasi per pengguna; jangan melayani error dengan data kedaluwarsa. Tab laporan `section` memakai native History API pada panel server yang sudah diotorisasi; pertahankan filter, Back/Forward, tautan langsung dan cetak seluruh panel. MCP tetap memakai verifikasi akses per pemanggilan. Lihat [docs/DASHBOARD_PERFORMANCE.md](./docs/DASHBOARD_PERFORMANCE.md).
+
 Pada fondasi Tahap 3, jalankan lint, typecheck, dan build, lalu periksa keenam route, filter URL, tabel/empty state, desktop/mobile, navigasi keyboard, serta log browser/server tanpa mengharuskan Neon. Pastikan loading skeleton dan error boundary tersedia; simulasi kegagalan data menjadi verifikasi Tahap 4. Setelah query Tahap 4 dihubungkan, periksa dua kompetisi, klasemen grup, tautan sumber, dan data review menggunakan Neon StatsArena.
 
 ## Security considerations

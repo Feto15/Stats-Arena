@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LocalClubReportView } from "@/components/reports/local-club-report-view";
-import { readReportCatalog, readClubReport } from "@/lib/reports/neon-server";
+import { readReportDirectory, readClubReport } from "@/lib/reports/neon-server";
 import type { DashboardSearchParams } from "@/lib/competition-scope";
 import { requireViewer, requireClub } from "@/lib/auth/server";
 import { canReadClub } from "@/lib/auth/policy";
@@ -11,13 +11,15 @@ import "../bima-perkasa/club.css";
 export async function generateMetadata({ params }: { params: Promise<{ club: string }> }): Promise<Metadata> {
   const { club } = await params;
   await requireViewer(`/reports/${club}`);
-  const entry = (await readReportCatalog()).clubs.find(c => c.slug === club);
+  const data = await readReportDirectory();
+  const entry = data.clubs.find(c => c.slug === club);
+  if (entry) await requireClub(data.competition.key, entry.sourceId, `/reports/${club}`);
   return { title: entry ? `${entry.name} · Club Report 2026` : "Report tidak ditemukan", description: "Laporan klub All Indonesian 2026.", robots: { index: false, follow: false } };
 }
 export default async function ClubPage({ params, searchParams }: { params: Promise<{ club: string }>; searchParams: Promise<DashboardSearchParams> }) {
   const { club } = await params;
   await requireViewer(`/reports/${club}`);
-  const data = await readReportCatalog();
+  const data = await readReportDirectory();
   const entry = data.clubs.find(c => c.slug === club);
   if (!entry) notFound();
   const filters = await searchParams;

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ANALYTICS_VERSION, calculateMetrics, contextualInputs, PLAYER_METRICS, TEAM_METRICS, sumStats, type StatField, type Stats } from "@statsarena/db/analytics";
 import { archivedGameSchema, scopedArchivedGameSchema, buildScopedArchivedGameReport } from "./game-report";
 import snapshot from "./demo-club.json";
+import { reportSection } from "./navigation";
 
 const windowGameIds = ["2697586", "2697587"] as const;
 export const clubReportSchema = z.object({
@@ -95,7 +96,7 @@ export type ClubPlayer = ClubReport["players"][number];
 export type ClubSection = "overview" | "players" | "games" | "shots" | "development" | "rotation";
 
 export function clubSelection(report: ClubReport, params: Record<string, string | string[] | undefined>) {
-  const section: ClubSection = params["section"] === "rotation" ? "rotation" : params["section"] === "players" ? "players" : params["section"] === "games" ? "games" : params["section"] === "shots" ? "shots" : "overview";
+  const section = reportSection(params["section"]);
   const player = report.players.find(player => player.sourceId === params["player"]) ?? report.players[0]!;
   return { section, player };
 }

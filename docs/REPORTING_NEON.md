@@ -1,5 +1,7 @@
 # Laporan klub dari Neon
 
+Optimasi 29 Oktober 2026: slug/metadata membaca direktori identitas dua query, isi laporan memakai cache per instance 15 detik sesudah pemeriksaan izin klub. Query PBP/LiveStats hanya mengambil bagian yang digunakan laporan; dataset sumber tetap utuh. Perubahan tab `section` memakai panel yang sudah dirender, dengan URL/filter dan cetak utuh tetap tersedia. Batas akses, TTL dan hasil ukur: [DASHBOARD_PERFORMANCE.md](./DASHBOARD_PERFORMANCE.md).
+
 Mulai 26 Oktober 2026, `/reports` dan `/reports/[club]` membaca statistik langsung dari Neon StatsArena. Kompetisi report tetap `IBL:50231`; daftar klub berasal dari `competition_teams`, bukan paket demo. Nama/slug, jadwal, box score, pemain, skor kuarter, shot chart, dan bukti rekonstruksi rotasi semuanya dibaca melalui server. Demo 2025 di route terpisah dan fixture pengujian tetap memakai arsip lokal.
 
 ## Alur baca dan akses

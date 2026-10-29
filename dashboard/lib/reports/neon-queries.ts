@@ -52,6 +52,20 @@ function validBoxStats(row: Stats) {
     row.fieldGoalsMade! <= row.fieldGoalsAttempted! && row.freeThrowsMade! <= row.freeThrowAttempts!;
 }
 
+/** Routing and page titles need identity only, not competition-wide statistical validation. */
+export async function getNeonReportDirectory(db: StatsArenaDatabase, input: string) {
+  const ref = competitionReference(input);
+  if (ref.namespace !== "IBL") throw new Error("Report kompetisi ini memerlukan namespace IBL.");
+  return db.transaction(async tx => {
+    const [competition] = await tx.select({ id: competitions.id, name: competitions.name, sourceUrl: competitions.sourceUrl }).from(competitions)
+      .where(and(eq(competitions.source, ref.source), eq(competitions.sourceCompetitionId, ref.id))).limit(1);
+    if (!competition || competitionReference(competition.sourceUrl).key !== ref.key) throw new Error("Kompetisi report belum tersedia di Neon.");
+    const rows = await tx.select({ sourceId: teams.sourceTeamId, name: teams.name, sourceUrl: competitionTeams.sourceUrl }).from(competitionTeams)
+      .innerJoin(teams, eq(teams.id, competitionTeams.teamId)).where(and(eq(competitionTeams.competitionId, competition.id), eq(teams.source, ref.source)));
+    return { competition: { key: ref.key, name: competition.name, sourceUrl: competition.sourceUrl }, clubs: clubSlugs(rows) };
+  }, { isolationLevel: "repeatable read", accessMode: "read only" });
+}
+
 /** Only stored domain rows and their exact source FK are read. No source fetch, audit file, or local fallback. */
 async function readCatalog(db: Reader, input: string) {
   const ref = competitionReference(input);
@@ -65,7 +79,10 @@ async function readCatalog(db: Reader, input: string) {
   const [clubRows, gameRows, teamRows, boxRows, playerHealth] = await Promise.all([
     db.select({ id: teams.id, sourceId: teams.sourceTeamId, name: teams.name, sourceUrl: competitionTeams.sourceUrl }).from(competitionTeams)
       .innerJoin(teams, eq(teams.id, competitionTeams.teamId)).where(and(eq(competitionTeams.competitionId, competition.id), eq(teams.source, ref.source))),
-    db.select().from(games).where(and(eq(games.competitionId, competition.id), eq(games.source, ref.source))).orderBy(asc(games.sourceGameId)),
+    db.select({ id: games.id, sourceGameId: games.sourceGameId, sourceUrl: games.sourceUrl, homeTeamId: games.homeTeamId, awayTeamId: games.awayTeamId,
+      homeScore: games.homeScore, awayScore: games.awayScore, scheduledAtRaw: games.scheduledAtRaw, venue: games.venue, status: games.status,
+      updatedAt: games.updatedAt, lastBoxscoreFetchId: games.lastBoxscoreFetchId, detailParserVersion: games.detailParserVersion })
+      .from(games).where(and(eq(games.competitionId, competition.id), eq(games.source, ref.source))).orderBy(asc(games.sourceGameId)),
     db.select({ row: teamGameStats }).from(teamGameStats).innerJoin(games, eq(games.id, teamGameStats.gameId))
       .where(and(eq(games.competitionId, competition.id), eq(games.source, ref.source))),
     db.select({ row: sourceFetches, parserVersion: importRuns.parserVersion }).from(games)
@@ -128,12 +145,14 @@ export async function getNeonClubReport(db: StatsArenaDatabase, input: string, c
     const [playerRows, pbpRows, shotRows, liveRows] = ids.length ? await Promise.all([
       tx.select({ row: playerGameStats, player: players }).from(playerGameStats).innerJoin(players, eq(players.id, playerGameStats.playerId))
         .innerJoin(games, eq(games.id, playerGameStats.gameId)).where(and(eq(games.competitionId, catalog.competitionId), inArray(games.id, ids), eq(players.source, competitionReference(input).source))),
-      tx.select().from(playByPlayEvents).innerJoin(games, eq(games.id, playByPlayEvents.gameId))
-        .where(and(eq(games.competitionId, catalog.competitionId), inArray(games.id, ids))).orderBy(asc(playByPlayEvents.sourceSequence)),
+      // Only period-end observations are used for quarter scores. Rotation uses its own verified evidence.
+      tx.select({ play_by_play_events: playByPlayEvents }).from(playByPlayEvents).innerJoin(games, eq(games.id, playByPlayEvents.gameId))
+        .where(and(eq(games.competitionId, catalog.competitionId), inArray(games.id, ids), eq(playByPlayEvents.actionType, "period"), eq(playByPlayEvents.actionText, "Period end"))).orderBy(asc(playByPlayEvents.sourceSequence)),
       tx.select({ row: shots, teamSourceId: teams.sourceTeamId, playerSourceId: players.sourcePlayerId }).from(shots)
         .innerJoin(games, eq(games.id, shots.gameId)).innerJoin(teams, eq(teams.id, shots.teamId)).innerJoin(players, eq(players.id, shots.playerId))
         .where(and(eq(games.competitionId, catalog.competitionId), inArray(games.id, ids), eq(shots.teamId, teamId), eq(teams.source, competitionReference(input).source), eq(players.source, competitionReference(input).source))).orderBy(asc(shots.sourceSequence)),
-      tx.select().from(gameLiveStats).innerJoin(games, eq(games.id, gameLiveStats.gameId)).where(and(eq(games.competitionId, catalog.competitionId), inArray(games.id, ids))),
+      tx.select({ gameId: gameLiveStats.gameId, sourceUrl: gameLiveStats.sourceUrl, pageUrl: gameLiveStats.pageUrl, rotation: sql<unknown>`${gameLiveStats.payload}->'rotation'` })
+        .from(gameLiveStats).innerJoin(games, eq(games.id, gameLiveStats.gameId)).where(and(eq(games.competitionId, catalog.competitionId), inArray(games.id, ids))),
     ]) : [[], [], [], []];
     const fetchIds = [...new Set([...pbpRows.map(r => r.play_by_play_events.sourceFetchId), ...shotRows.map(r => r.row.sourceFetchId)].filter((v): v is string => !!v))];
     const fetchRows = fetchIds.length ? await tx.select().from(sourceFetches).where(and(eq(sourceFetches.competitionId, catalog.competitionId), inArray(sourceFetches.id, fetchIds))) : [];
@@ -170,8 +189,8 @@ export async function getNeonClubReport(db: StatsArenaDatabase, input: string, c
       const chart = shotReference.length === 1 && gameShots.every(s => s.row.sourceFetchId === fetchRows.find(f => f.sha256 === shotReference[0]!.sha256 && f.requestUrl === shotReference[0]!.sourceUrl)?.id && s.row.parserVersion === shotReference[0]!.parserVersion) ? {
         gameSourceId: g.sourceGameId, ...shotReference[0], status: "parsed", shots: gameShots.map(({ row, teamSourceId, playerSourceId }) => ({ ...row, gameSourceId: g.sourceGameId, teamSourceId, playerSourceId })),
       } : null;
-      const live = liveRows.find(r => r.game_livestats.gameId === g.id)?.game_livestats;
-      const parsedEvidence = rotationEvidenceSchema.safeParse(live?.payload?.rotation);
+      const live = liveRows.find(r => r.gameId === g.id);
+      const parsedEvidence = rotationEvidenceSchema.safeParse(live?.rotation);
       const evidence = parsedEvidence.success ? parsedEvidence.data : null;
       const provenance = evidence?.provenance;
       const rotation = live && evidence && provenance && evidence.gameSourceId === g.sourceGameId ? {

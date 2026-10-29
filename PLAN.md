@@ -1,5 +1,7 @@
 # Rencana Proyek StatsArena
 
+Optimasi dashboard 29 Oktober 2026: query dashboard/report memakai cache memori per instance dengan TTL 5–60 detik dan otorisasi sebelum setiap hit, pool auth/data bersama, serta direktori slug laporan dua query. Tab laporan berpindah pada panel yang sudah dirender dengan filter/URL dan cetak utuh tetap tersedia. Seluruh 93 test dashboard, lint, typecheck, build production Webpack dan browser desktop/ponsel lulus. Benchmark read-only satu klub Neon menunjukkan 17→13 SELECT untuk pembukaan tanpa cache dan nol SELECT data saat cache terpakai; bukan pengukuran Vercel. Tidak ada migrasi atau perubahan data statistik Neon. Lihat [DASHBOARD_PERFORMANCE.md](./docs/DASHBOARD_PERFORMANCE.md).
+
 Pembaruan demo 24 Oktober 2026: ON/OFF Net Rating estimasi dari total event interval memakai evaluator analitik bersama; shot chart satu kanvas/laga dengan pilihan pertandingan. Data tetap snapshot lokal dua laga, tanpa RAPM, perubahan schema, atau impor Neon. Metode dan batas: [REPORTING_DEMO.md](./docs/REPORTING_DEMO.md).
 
 Tambahan demo 23 Oktober 2026: laporan klub Bima Perkasa untuk tepat dua laga All Indonesian 2025 menyediakan perkembangan pemain dan rekonstruksi rotasi/lineup/on-off dari arsip LiveStats yang tervalidasi. Ini cakupan demo offline, bukan pipeline lineup seluruh kompetisi atau penyimpanan interval Neon. Lihat [REPORTING_DEMO.md](./docs/REPORTING_DEMO.md).

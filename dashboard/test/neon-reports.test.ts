@@ -8,7 +8,8 @@ import { z } from "zod";
 import { and, eq, sql } from "drizzle-orm";
 import type { StatsArenaDatabase } from "@statsarena/db";
 import { schema, competitions, competitionTeams, teams, games, sourceFetches, importRuns, teamGameStats, playerGameStats, players, playByPlayEvents, shots, gameLiveStats } from "@statsarena/db/schema";
-import { getNeonClubReport, getNeonReportCatalog } from "../lib/reports/neon-queries";
+import { getNeonClubReport, getNeonReportCatalog, getNeonReportDirectory } from "../lib/reports/neon-queries";
+import { createReadCache } from "../lib/data/read-cache";
 import { buildClubRotations } from "../lib/reports/club-rotation";
 import { buildClubShotCharts } from "../lib/reports/club-shot-chart";
 import snapshot from "../lib/reports/data/IBL-50231.json";
@@ -17,7 +18,8 @@ test("Neon reports read stored scoped data, preserve source evidence, and never 
   const client = new PGlite();
   try {
     await migrate(drizzle(client), { migrationsFolder: fileURLToPath(new URL("../../packages/db/drizzle", import.meta.url)), migrationsSchema: "statsarena", migrationsTable: "__drizzle_migrations" });
-    const db = drizzle(client, { schema }) as unknown as StatsArenaDatabase;
+    const queries: string[] = [];
+    const db = drizzle(client, { schema, logger: { logQuery(query) { queries.push(query); } } }) as unknown as StatsArenaDatabase;
     const [competition] = await db.insert(competitions).values({ source: "genius_sports:IBL", sourceCompetitionId: "50231", sourceUrl: snapshot.competition.sourceUrl, name: snapshot.competition.name }).returning();
     await db.insert(competitions).values({ sourceCompetitionId: "50231", sourceUrl: snapshot.competition.sourceUrl.replace("/IBL/", "/IBF/"), name: "Foreign namespace" });
     const teamIds = new Map<string, string>();
@@ -68,6 +70,21 @@ test("Neon reports read stored scoped data, preserve source evidence, and never 
             players: team.players.map(p => ({ ...p, playerId: playerIds.get(p.sourceId)!, localPlayerKey: String(p.localKey) })) })),
         } } });
     }
+    await t.test("directory routing avoids statistical queries and repeated cached reports perform no database reads", async () => {
+      queries.length=0;
+      const directory=await getNeonReportDirectory(db,"IBL:50231");
+      const lightweight=queries.filter(query=>/^select /i.test(query)).length;
+      assert.equal(lightweight,2);assert.equal(directory.clubs.length,10);
+      assert.ok(!queries.some(query=>/player_game_stats|source_fetches|team_game_stats|play_by_play_events|shots|game_livestats/.test(query)));
+      const cache=createReadCache();let checks=0;
+      const load=()=>cache.read({key:["club","IBL:50231",directory.clubs[0]!.sourceId],authorize:async()=>{checks++;},load:()=>getNeonClubReport(db,"IBL:50231",directory.clubs[0]!.sourceId)});
+      queries.length=0;const first=await load();assert.ok(first);assert.ok(queries.length>0);
+      const expected=first.report.totals.points;first.clubs.length=0;queries.length=0;
+      const second=await load();assert.ok(second);assert.equal(queries.length,0);assert.equal(checks,2);
+      assert.equal(second.clubs.length,10);assert.equal(second.report.totals.points,expected);
+      const catalog=await getNeonReportCatalog(db,"IBL:50231");
+      assert.deepEqual(new Set(directory.clubs.map(c=>c.slug)),new Set(catalog.clubs.map(c=>c.slug)));
+    });
     await t.test("catalog, box score, quarters, player metrics, shots and rotation use the same scoped Neon rows", async () => {
       const catalog = await getNeonReportCatalog(db, "IBL:50231");
       assert.equal(catalog.clubs.length, 10); assert.equal(catalog.games.length, 7); assert.equal(catalog.fixtures.length, 20);

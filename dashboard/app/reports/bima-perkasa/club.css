@@ -43,3 +43,5 @@
 .club-roster-sort:focus-visible,.club-roster-table tbody a:focus-visible{outline:2px solid #357754;outline-offset:2px;border-radius:2px}
 @media screen and (min-width:761px){.club-player-profile{position:sticky;top:24px;align-self:start;max-height:calc(100dvh - 48px);overflow:auto}}
 @media print{.club-roster-sort svg{display:none}.club-roster-sort{min-height:0}}
+
+@media screen{.club-report-sections>[data-report-panel]{display:none}.club-report-sections[data-section="overview"]>[data-report-panel="overview"],.club-report-sections[data-section="players"]>[data-report-panel="players"],.club-report-sections[data-section="games"]>[data-report-panel="games"],.club-report-sections[data-section="shots"]>[data-report-panel="shots"],.club-report-sections[data-section="rotation"]>[data-report-panel="rotation"]{display:block}}

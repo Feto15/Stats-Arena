@@ -1,12 +1,11 @@
 import "server-only";
-import { createDatabase } from "@statsarena/db";
+import { getDashboardDatabase } from "../data/connection";
 import { authSettings } from "./settings";
 import { createReportAuth } from "./factory";
 
-let connection: ReturnType<typeof createDatabase> | undefined;
 let auth: ReturnType<typeof createReportAuth> | undefined;
 export function getAuthDatabase() {
   authSettings();
-  return (connection ??= createDatabase()).db;
+  return getDashboardDatabase();
 }
 export function getAuth() { return auth ??= createReportAuth(getAuthDatabase(), authSettings()); }

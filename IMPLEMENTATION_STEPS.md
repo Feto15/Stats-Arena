@@ -1,5 +1,16 @@
 # Langkah Implementasi StatsArena
 
+### Optimasi navigasi dashboard/report — 29 Oktober 2026
+
+- [x] Cache terbatas dan terpisah per scope/filter, otorisasi sebelum hit/join, salinan hasil per request, TTL dan kegagalan tanpa fallback kedaluwarsa.
+- [x] Pool auth/data bersama; direktori laporan dua query dan proyeksi PBP/LiveStats sesuai kebutuhan.
+- [x] Tab laporan menggunakan panel server yang sama, native History API, filter URL tetap terbawa, serta cetak seluruh panel.
+- [x] 93 test dashboard, lint, typecheck, build Webpack dan benchmark read-only Neon; statistik hasil lama/baru identik.
+- [x] Browser production lokal: tujuh halaman, kelima tab, keyboard, filter Q2, Back/Forward, desktop dan ponsel tanpa overflow dokumen.
+- [ ] Pengukuran waktu respons/Core Web Vitals setelah deployment Vercel; hasil lokal bukan bukti performa publik.
+
+Metode dan batas: [DASHBOARD_PERFORMANCE.md](./docs/DASHBOARD_PERFORMANCE.md).
+
 Pembaruan demo 24 Oktober 2026: ON/OFF Net Rating estimasi dari total event interval memakai evaluator analitik bersama; shot chart satu kanvas/laga dengan pilihan pertandingan. Data tetap snapshot lokal dua laga, tanpa RAPM, perubahan schema, atau impor Neon. Metode dan batas: [REPORTING_DEMO.md](./docs/REPORTING_DEMO.md).
 
 Tambahan demo 23 Oktober 2026: perkembangan pemain dan rotasi/lineup/on-off dua laga Bima Perkasa tersedia dari snapshot lokal. Checklist pengembangan lineup produksi tetap terpisah; tidak ada perubahan parser/importer/schema Neon. Cakupan, guard, dan sumber: [REPORTING_DEMO.md](./docs/REPORTING_DEMO.md).
